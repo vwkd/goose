@@ -3,6 +3,16 @@
 // global object
 const goose = {};
 
+/* basename quux.html
+   dirname  asdf
+   extname  .html !BEWARE: EMPTY IF NO EXTENSION, BETTER USE MEDIA TYPE?!
+   join     /foo/bar/baz/asdf
+   format <> parse  path string <> object
+   normalize resolves `..` path segments
+   relative(from, to) ../../impl/bbb
+   resolves  join from right to left until has absolute path, most right path segment is cwd
+*/
+
 // load default config
 // load `.goose.ts` from current folder
 // load command line arguments

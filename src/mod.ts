@@ -2,6 +2,7 @@
 // parse CLI arguments
 // TODO: clarify help, specify type, default values, ....
 // TODO: validate arguments, e.g. input != output folder, not both short- & longhand like -i="abc" --source="dfg", etc.
+// todo: use argument parser with validation, aliasing
 
 import { meta, log, cliParse, goose } from "./deps.ts";
 
@@ -33,8 +34,8 @@ if (import.meta.main) {
     }
 
     // may have irregular options, just won't use later
-    // todo: only set if value is sensible
-    const args = {
+    // todo: remove in favor of argument parser with validation
+    const options = {
         source: (parsedArgs.i || parsedArgs.source),
         target: (parsedArgs.o || parsedArgs.target),
         format: (parsedArgs.f || parsedArgs.format),
@@ -44,9 +45,5 @@ if (import.meta.main) {
         quiet: (parsedArgs.q || parsedArgs.quiet),
     }
 
-    log.info(`${meta.name} v${meta.version}`);
-    const start = performance.now();
-    await goose(parsedArgs);
-    const elapsed = performance.now() - start;
-    log.info(`It took ${meta.name} ${(elapsed / 1000).toLocaleString()}s to build your project.`)
+    goose(options);
 }
