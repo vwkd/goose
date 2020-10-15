@@ -1,8 +1,9 @@
 // entry point
-// parse CLI arguments
+// parse CLI arguments, build config object, call mainWorker with config object
+
 // TODO: clarify help, specify type, default values, ....
 // TODO: validate arguments, e.g. input != output folder, not both short- & longhand like -i="abc" --source="dfg", etc.
-// todo: use argument parser with validation, aliasing
+// todo: use argument parser with validation, proper aliasing
 
 import { meta, log, cliParse, goose } from "./deps.ts";
 

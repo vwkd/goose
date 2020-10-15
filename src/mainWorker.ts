@@ -1,5 +1,5 @@
 // main Worker
-// takes config as argument
+// takes config as argument, writes files to disk
 
 // mainObject = { files, config, globalData, templates }
 

@@ -1,23 +1,4 @@
-import { deepMerge } from "./deps.ts";
-
-// todo: argument of exported function
-const linkKey = "template";
-
-function walkUp(node) {
-    return node.linkKey ? `${walkUp(node.linkKey)} <- ${node.name}` : node.name;
-}
-
-function propMerge(node) {
-    const localProps = node.properties;
-    return node.linkKey ? Object.assign(propMerge(node.linkKey), localProps) : localProps;
-}
-
-function propDeepMerge(node) {
-    const localProps = node.properties;
-    return node.linkKey ? deepMerge(propDeepMerge(node.linkKey), localProps) : localProps;
-}
-
-// example data for walking
+import { walkUp, walkUpWork, propMerge, propDeepMerge } from "./tree.ts";
 
 function testWalk() {
     const a1 = {
@@ -26,30 +7,33 @@ function testWalk() {
 
     const b1 = {
         name: "b1",
-        linkKey: a1
+        parent: a1
     };
 
     const b2 = {
         name: "b2",
-        linkKey: a1
+        parent: a1
     };
 
     const c1 = {
         name: "c1",
-        linkKey: b1
+        parent: b1
     };
 
     const c2 = {
         name: "c2",
-        linkKey: b1
+        parent: b1
     };
 
-    console.log(walkUp(a1));
-    console.log(walkUp(b1));
-    console.log(walkUp(b2));
-    console.log(walkUp(c1));
-    console.log(walkUp(c2));
+    // console.log(walkUp(a1, "parent"));
+    // console.log(walkUp(b1, "parent"));
+    // console.log(walkUp(b2, "parent"));
+    // console.log(walkUp(c1, "parent"));
+    console.log(walkUp(c2, "parent"));
+    walkUpWork(c2, "parent", (node, lastValue) => `${node.name}${lastValue ? ` <- ${lastValue}` : ""}`, (node, lastValue) => {console.log(lastValue)});
 }
+
+testWalk();
 
 // example data for property merging
 // props have value of name of node for easier identification
@@ -66,7 +50,7 @@ function testPropMerge() {
 
     const b1 = {
         name: "b1",
-        linkKey: a1,
+        parent: a1,
         properties: {
             foo: "b1",
             bar: "b1",
@@ -76,7 +60,7 @@ function testPropMerge() {
 
     const b2 = {
         name: "b2",
-        linkKey: a1,
+        parent: a1,
         properties: {
             foo: "b2",
             bar: "b2",
@@ -86,7 +70,7 @@ function testPropMerge() {
 
     const c1 = {
         name: "c1",
-        linkKey: b1,
+        parent: b1,
         properties: {
             foo: "c1",
             bar: "c1",
@@ -96,7 +80,7 @@ function testPropMerge() {
 
     const c2 = {
         name: "c2",
-        linkKey: b1,
+        parent: b1,
         properties: {
             foo: "c2",
             bar: "c2",
@@ -104,15 +88,14 @@ function testPropMerge() {
         }
     };
 
-    // console.log(propMerge(a1));
-    // console.log(propMerge(b1));
-    // console.log(propMerge(b2));
-    // console.log(propMerge(c1));
-    console.log(walkUp(c2));
-    console.log(propMerge(c2));
-    console.log(propDeepMerge(c2));
+    // console.log(propMerge(a1, "parent"));
+    // console.log(propMerge(b1, "parent"));
+    // console.log(propMerge(b2, "parent"));
+    // console.log(propMerge(c1, "parent"));
+    console.log(propMerge(c2, "parent"));
 }
 
+testPropMerge();
 
 
 function testPropDeepMerge() {
@@ -129,7 +112,7 @@ function testPropDeepMerge() {
 
     const b1 = {
         name: "b1",
-        linkKey: a1,
+        parent: a1,
         properties: {
             foo: {
                 b: "b1"
@@ -141,7 +124,7 @@ function testPropDeepMerge() {
 
     const b2 = {
         name: "b2",
-        linkKey: a1,
+        parent: a1,
         properties: {
             foo: "b2",
             bar: "b2",
@@ -151,7 +134,7 @@ function testPropDeepMerge() {
 
     const c1 = {
         name: "c1",
-        linkKey: b1,
+        parent: b1,
         properties: {
             foo: "c1",
             bar: "c1",
@@ -161,7 +144,7 @@ function testPropDeepMerge() {
 
     const c2 = {
         name: "c2",
-        linkKey: b1,
+        parent: b1,
         properties: {
             foo: {
                 c: "c2"
@@ -171,8 +154,11 @@ function testPropDeepMerge() {
         }
     };
 
-    console.log(walkUp(c2));
-    console.log(propDeepMerge(c2));
+    // console.log(propDeepMerge(a1, "parent"));
+    // console.log(propDeepMerge(b1, "parent"));
+    // console.log(propDeepMerge(b2, "parent"));
+    // console.log(propDeepMerge(c1, "parent"));
+    console.log(propDeepMerge(c2, "parent"));
 }
 
-testPropDeepMerge()
+testPropDeepMerge();
