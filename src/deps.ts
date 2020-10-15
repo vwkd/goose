@@ -27,5 +27,7 @@ export { basename,
 
 // export { valivar } from "https://deno.land/x/valivar@v6.2.9/mod.ts";
 
-// todo: fix
+// todo: pin version
 export { deepMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/deep_merge.ts"
+export { shallowMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/shallow_merge.ts"
+export { walkCall, walkMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_tree.ts"
