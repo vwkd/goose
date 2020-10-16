@@ -16,6 +16,7 @@ source, target, template
 - debugging
 - serve via file_server ?, watch via Deno --watch ?
 - multiple configs depending on environment variables, e.g. dev, prod
+- allow custom parsing of properties, e.g. as date, etc.
 
 ## Desired features
 

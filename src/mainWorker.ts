@@ -3,10 +3,12 @@
 
 // mainObject = { files, config, globalData, templates }
 
+// -- check permissions
 // read output dir, ensure doesn't exist [until incremental build enabled]
 // (beware: in meantime until writes output could create, would be overwritten then)
-
 // read source dir, throw error if not possible
+
+// -- build file list
 // walk source dir, build array of file info objects ("files"), e.g. file path
 // walk source dir, add file hashes to file info [for incremental, later]
 // repeat for file, add outputAction = "process" | "copy" | "ignore" based on file path and extension
@@ -16,23 +18,38 @@
 //   else => "copy" (i.e. assets)
 // FEAT: better than globs, because can only select, not negate, not do multiple actions depending on outcome
 
+// -- build global data
 // walk data dir, add data to globalData, beware: identical property names overwrite each other
 // (todo: optimise, walks dir again what is already in mainObject.files)
-
-// -- build dependency tree
-// repeat for file with outputAction = "process", build dependency chain
-//   if has "template" local property (path is relative to template dir!)
-//      add file object under the key of its hash as child property of template object entry
-//         ... recursively until no more "template" local property
-//         (todo: build in cyclic check)
-//         (todo: throw error if template file doesn't exist)
-// add each dependency chain to dependency tree, deep merging
-// add each file with outputAction = "copy" as well
-// FEAT: ignores templates that aren't referenced anywhere
 
 // -- compute properties
 // walk dependency tree from top to bottom, compute local properties of each file
 // FEAT: efficient, because computes properties for every file only once
+
+// -- build dependency tree
+// repeat for file with outputAction = "process", build dependency chain from "includes" relationship
+//   if has "template" local property (path is relative to template dir!)
+//      build single dependency chain of hashes {"X": { "YY": { "aaa": null } } }
+//         ... recursively until no more "template" local property
+//         (todo: throw error if template file doesn't exist)
+//         (todo: throw error if cyclic, build in cyclic check)
+// add each dependency chain to dependency tree, deep merging
+/*
+{
+    "X": {
+        "YY": {
+            "aaa": undefined,
+            "bbb": undefined
+        },
+        "ZZ": {
+            "ccc": undefined,
+            "ddd": undefined
+        }
+    }
+}
+*/
+// add each file with outputAction = "copy" as well to top level
+// FEAT: ignores templates that aren't referenced anywhere
 
 // -- build deletion dependency tree
 // repeat for each leaf of dependency tree
