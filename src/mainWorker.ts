@@ -1,12 +1,24 @@
+import { exists } from "./deps.ts";
+
+// mainObject = { files, config, globalData, templates }
+
 // main Worker
 // takes config as argument, writes files to disk
 
-// mainObject = { files, config, globalData, templates }
+function main(config) {
 
 // -- check permissions
 // read output dir, ensure doesn't exist [until incremental build enabled]
 // (beware: in meantime until writes output could create, would be overwritten then)
 // read source dir, throw error if not possible
+
+if (await exists(config.target)) {
+    throw new Error(`Target folder already exists.`);
+}
+
+if (!(await exists(config.source))) {
+    throw new Error(`Source folder doesn't exist.`);
+}
 
 // -- build file list
 // walk source dir, build array of file info objects ("files"), e.g. file path
@@ -48,7 +60,7 @@
     }
 }
 */
-// add each file with outputAction = "copy" as well to top level
+// add each file with outputAction = "copy" as well to top level ?? CONFLICT WITH TEMPLATE NAME, WHY NOT SEPARATE
 // FEAT: ignores templates that aren't referenced anywhere
 
 // -- build deletion dependency tree
@@ -81,3 +93,5 @@
 // TODO:
 // - add folder-wide data files
 // - Q: can a template itself be outputted ? NO, WHAT WOULD CONTENT BE...
+
+}

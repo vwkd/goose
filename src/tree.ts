@@ -1,7 +1,10 @@
 import { walkCall, deepMerge } from "./deps.ts";
 
 // TODO: how gets the objects linked up in the first place ?
+//      maybe needs new walkCall that instead of following direct links looks up keys in an array, e.g. by path in fileList
+// TODO: check if include exists
 // TODO: really includes would be in data array, but can't specify nested computed properties...
+// TODO: circular dependency check
 
 type file = {
     hash: string;
@@ -10,19 +13,18 @@ type file = {
     data: object;
 };
 
+// only for files that have file.action == "process" !!!
+function buildBranch(file) {
+    const treeBranch = walkCall(file, "includes", (node, lastValue) => ({
+        [node.hash]: lastValue ?? null
+    }));
+    return treeBranch
+}
+
 // use null for absence of include because will safe tree as JSON
 function buildTree(fileList: file[]): object {
-    const treeBranches = [];
-    fileList.forEach(file => {
-        if (file.action == "process") {
-            const treeBranch = walkCall(file, "includes", (node, lastValue) => ({
-                [node.hash]: lastValue ?? null
-            }));
-            treeBranches.push(treeBranch);
-        } else if (file.action == "copy") {
-            treeBranches.push({ [file.hash]: null });
-        }
-    });
+    
+    const treeBranches = fileList.map(buildBranch);
 
     // TODO: Check that actually nothing is overwritten, since leafs are unique ?!?!
     const tree = treeBranches.reduce((pre, cur) => deepMerge(pre, cur), {});
@@ -30,10 +32,23 @@ function buildTree(fileList: file[]): object {
     return tree;
 }
 
+function dependencyList(fileList: file[]) {
+
+    const processTree = buildTree(fileList.filter(file => file.action == "process"));
+
+    // todo: rename, is not a tree
+    const copyTree = fileList.filter(file => file.action == "copy").map(file => ({ [file.hash]: null }));
+
+    console.log("build the following trees:")
+    console.log(processTree);
+    console.log(copyTree);
+
+    return {"processTree": processTree, "copyTree": copyTree};
+}
+
 function testBuildTree() {
     const a = {
         hash: "a",
-        path: "L/A",
         action: "ignore",
         includes: null,
         data: {
@@ -44,7 +59,6 @@ function testBuildTree() {
 
     const b = {
         hash: "b",
-        // path: "T/O/B",
         action: "ignore",
         includes: a,
         data: {
@@ -55,7 +69,6 @@ function testBuildTree() {
 
     const c1 = {
         hash: "c1",
-        path: "F/O/C1",
         action: "process",
         includes: b,
         data: {
@@ -66,7 +79,6 @@ function testBuildTree() {
 
     const c2 = {
         hash: "c2",
-        // path: "F/O/C2",
         action: "process",
         includes: b,
         data: {
@@ -75,9 +87,14 @@ function testBuildTree() {
         }
     };
 
-    const fileList = [c2, c1, b, a];
+    const z1 = {
+        hash: "z1",
+        action: "copy",
+    }
 
-    console.log(buildTree(fileList));
+    const fileList = [z1, c2, c1, b, a];
+
+    console.log(dependencyList(fileList));
 }
 
 testBuildTree();
