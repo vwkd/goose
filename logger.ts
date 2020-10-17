@@ -3,20 +3,31 @@ import { ConsoleHandler, FileHandler, Logger, LogLevelNames } from "./deps.ts";
 import { meta } from "./deps.ts";
 export { log, LogLevelNames };
 
-// todo: default options
-const logLevel = LogLevelNames.Trace;
-const c = false;
-const f = "log.txt";
+// todo: allow enabling logging via ENV flags, set level if logging is enabled
+// respects LOG_LEVEL only if LOG_CONSOLE and/or LOG_FILE
+// respects LOG_PATH only if LOG_FILE is set
+const LOG_CONSOLE = true;
+const LOG_FILE = false;
+const LOG_PATH = "log.txt";
+const LOG_LEVEL = LogLevelNames.Trace;
+
+// todo: use defaults if no ENV flag provided
+const logOptionsDefault = {
+    console: false,
+    file: false,
+    path: "log.txt",
+    level: LogLevelNames.Info
+};
 
 let log = undefined;
 
 // logging on
-if (c || f) {
+if (LOG_CONSOLE || LOG_FILE) {
     const handlers = [];
     // logging to console
-    if (c) {
+    if (LOG_CONSOLE) {
         handlers.push(
-            new ConsoleHandler(logLevel, {
+            new ConsoleHandler(LOG_LEVEL, {
                 formatter: ({ levelName, message }) =>
                     `[${meta.name}]: ${levelName.toUpperCase()} ${message}`
             })
@@ -24,10 +35,10 @@ if (c || f) {
     }
 
     // logging to file
-    if (f) {
+    if (LOG_FILE) {
         handlers.push(
-            new FileHandler(logLevel, {
-                filename: f,
+            new FileHandler(LOG_LEVEL, {
+                filename: LOG_PATH,
                 formatter: ({ levelName, message }) =>
                     `${new Date().toISOString()} [${
                         meta.name
@@ -39,7 +50,7 @@ if (c || f) {
     // logging to both console and file
     log = new Logger({
         name: meta.name,
-        levelName: logLevel,
+        levelName: LOG_LEVEL,
         handlers: handlers
     });
 }
@@ -48,24 +59,3 @@ if (c || f) {
 else {
     log = new Logger({ name: meta.name });
 }
-
-// if logging to file
-// if logging to console + file
-
-// if logging to console + file
-
-const consoleHandler = new ConsoleHandler(logLevel, {
-    formatter: ({ levelName, message }) => `[${meta.name}]: ${levelName.toUpperCase()} ${message}`
-});
-
-const fileHandler = new FileHandler(logLevel, {
-    filename: "./log.txt",
-    formatter: ({ levelName, message }) =>
-        `${new Date().toISOString()} [${meta.name}]: ${levelName.toUpperCase()} ${message}`
-});
-
-const log111 = new Logger({
-    name: meta.name,
-    levelName: logLevel,
-    handlers: [consoleHandler, fileHandler]
-});
