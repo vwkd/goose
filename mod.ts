@@ -4,8 +4,6 @@ import { log } from "./logger.ts";
 
 log.info("Application started.");
 
-let unknownOption = false;
-
 const defaultOptions = {
     input: "src",
     output: "dst",
@@ -28,10 +26,7 @@ const options = {
         help: ["h"],
         version: ["v"]
     },
-    default: defaultOptions,
-    unknown: () => {
-        unknownOption = true;
-    }
+    default: defaultOptions
 };
 
 function printVersion() {
@@ -68,7 +63,7 @@ function parseCommands(args) {
     // doesn't validate paths except that non-empty
 
     // if anywhere unknown option
-    if (unknownOption) {
+    if (args._.length > 0) {
         log.trace("Anywhere unknown option.");
         printInvalid();
         printHelp();

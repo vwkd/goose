@@ -14,6 +14,8 @@ export {
 
 export { parse as minimist } from "https://deno.land/std@0.74.0/flags/mod.ts";
 
+export { config as dotenv } from "https://deno.land/x/dotenv@v0.5.0/mod.ts";
+
 // todo: expandGlob
 export { walk, exists } from "https://deno.land/std@0.74.0/fs/mod.ts";
 

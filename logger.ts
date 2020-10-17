@@ -1,30 +1,35 @@
 // import { Logger } from "./deps.ts";
 import { ConsoleHandler, FileHandler, Logger, LogLevelNames } from "./deps.ts";
 import { meta } from "./deps.ts";
+import { dotenv } from "./deps.ts";
 export { log, LogLevelNames };
+import { capitalise, booleanise } from "./utils.ts"
 
-// todo: allow enabling logging via ENV flags, set level if logging is enabled
-// respects LOG_LEVEL only if LOG_CONSOLE and/or LOG_FILE
+// respects LOG_LEVEL only if LOG_CONSOLE and/or LOG_FILE is set
 // respects LOG_PATH only if LOG_FILE is set
-const LOG_CONSOLE = true;
-const LOG_FILE = false;
-const LOG_PATH = "log.txt";
-const LOG_LEVEL = LogLevelNames.Trace;
 
-// todo: use defaults if no ENV flag provided
-const logOptionsDefault = {
-    console: false,
-    file: false,
-    path: "log.txt",
-    level: LogLevelNames.Info
+const envDefault = {
+    LOG_CONSOLE: false,
+    LOG_FILE: false,
+    LOG_PATH: "log.txt",
+    LOG_LEVEL: LogLevelNames.Info
 };
+
+dotenv({export: true});
+
+// use ?? instead of || because functions return desired value or undefined
+const LOG_CONSOLE = booleanise(Deno.env.get("LOG_CONSOLE")) ?? envDefault.LOG_CONSOLE;
+const LOG_FILE = booleanise(Deno.env.get("LOG_FILE")) ?? envDefault.LOG_FILE;
+const LOG_LEVEL = capitalise(Deno.env.get("LOG_LEVEL")) ?? envDefault.LOG_LEVEL;
+// use || instead of ?? because wants to default also for empty string
+const LOG_PATH = Deno.env.get("LOG_PATH") || envDefault.LOG_PATH;
 
 let log = undefined;
 
 // logging on
 if (LOG_CONSOLE || LOG_FILE) {
     const handlers = [];
-    // logging to console
+
     if (LOG_CONSOLE) {
         handlers.push(
             new ConsoleHandler(LOG_LEVEL, {
@@ -34,7 +39,6 @@ if (LOG_CONSOLE || LOG_FILE) {
         );
     }
 
-    // logging to file
     if (LOG_FILE) {
         handlers.push(
             new FileHandler(LOG_LEVEL, {
@@ -47,7 +51,6 @@ if (LOG_CONSOLE || LOG_FILE) {
         );
     }
 
-    // logging to both console and file
     log = new Logger({
         name: meta.name,
         levelName: LOG_LEVEL,
@@ -57,5 +60,5 @@ if (LOG_CONSOLE || LOG_FILE) {
 
 // logging off
 else {
-    log = new Logger({ name: meta.name });
+    log = new Logger({ name: meta.name, handlers: [] });
 }

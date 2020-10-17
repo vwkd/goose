@@ -1,4 +1,5 @@
 .vscode
+.env
 
 # General
 .DS_Store
