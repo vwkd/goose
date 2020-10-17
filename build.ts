@@ -1,3 +1,9 @@
+import { log } from "./logger.ts";
+
 export function build(options) {
-    console.log(options);
+    log.info("Build started.");
+
+    log.debug(`Build options: ${JSON.stringify(options)}`);
+
+    log.info("Build ended.");
 }

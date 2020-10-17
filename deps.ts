@@ -11,7 +11,6 @@ export {
     FileHandler,
     LogLevelNames
 } from "./logging/mod.ts";
-// } from "https://github.com/denoland/deno/blob/785eeb1060ed234d8c9b99c07415f77698834a66/std/log/mod.ts";
 
 export { parse as minimist } from "https://deno.land/std@0.74.0/flags/mod.ts";
 

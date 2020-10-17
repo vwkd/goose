@@ -1,8 +1,8 @@
-log.info("Application started.");
-
 import { meta, minimist } from "./deps.ts";
 import { build } from "./build.ts";
 import { log } from "./logger.ts";
+
+log.info("Application started.");
 
 let unknownOption = false;
 
@@ -29,7 +29,9 @@ const options = {
         version: ["v"]
     },
     default: defaultOptions,
-    unknown: () => {unknownOption = true}
+    unknown: () => {
+        unknownOption = true;
+    }
 };
 
 function printVersion() {
@@ -67,26 +69,26 @@ function parseCommands(args) {
 
     // if anywhere unknown option
     if (unknownOption) {
-        log.trace("Anywhere unknown option.")
+        log.trace("Anywhere unknown option.");
         printInvalid();
         printHelp();
     }
 
     // if anywhere help
     else if (args.help) {
-        log.trace("Anywhere help option.")
+        log.trace("Anywhere help option.");
         printHelp();
     }
 
     // if anywhere version
     else if (args.version) {
-        log.trace("Anywhere version option.")
+        log.trace("Anywhere version option.");
         printVersion();
     }
 
     // if both verbose and quiet
     else if (args.verbose && args.quiet) {
-        log.trace("Both verbose and quiet option.")
+        log.trace("Both verbose and quiet option.");
         printInvalid();
         printHelp();
     }
@@ -94,14 +96,15 @@ function parseCommands(args) {
     // if any path is empty
     // note: if undefined by user, would have default value which is non-empty
     else if (!args.input.trim() || !args.output.trim() || !args.config.trim()) {
-        log.trace("Any empty path option.")
+        log.trace("Any empty path option.");
         printInvalid();
         printHelp();
     }
 
     // end of simple validation
     else {
-        log.trace("Successful passed validation.")
+        log.trace("Successfully passed validation.");
+
         const argsFiltered = {
             input: args.input.trim(),
             output: args.output.trim(),
@@ -110,6 +113,8 @@ function parseCommands(args) {
             verbose: args.verbose,
             quiet: args.quiet
         };
+
+        log.debug(`Filtered options: ${JSON.stringify(argsFiltered)}`);
 
         build(argsFiltered);
     }
