@@ -12,14 +12,6 @@ function main(config) {
 // (beware: in meantime until writes output could create, would be overwritten then)
 // read source dir, throw error if not possible
 
-if (await exists(config.target)) {
-    throw new Error(`Target folder already exists.`);
-}
-
-if (!(await exists(config.source))) {
-    throw new Error(`Source folder doesn't exist.`);
-}
-
 // -- build file list
 // walk source dir, build array of file info objects ("files"), e.g. file path
 // walk source dir, add file hashes to file info [for incremental, later]
@@ -29,6 +21,7 @@ if (!(await exists(config.source))) {
 //   if file type is processed => "process"
 //   else => "copy" (i.e. assets)
 // FEAT: better than globs, because can only select, not negate, not do multiple actions depending on outcome
+//      copies everything else, doesn't need opt-in
 
 // -- build global data
 // walk data dir, add data to globalData, beware: identical property names overwrite each other
@@ -36,6 +29,7 @@ if (!(await exists(config.source))) {
 
 // -- compute properties
 // walk dependency tree from top to bottom, compute local properties of each file
+// check for duplicate output paths!!!
 // FEAT: efficient, because computes properties for every file only once
 
 // -- build dependency tree
@@ -63,6 +57,18 @@ if (!(await exists(config.source))) {
 // add each file with outputAction = "copy" as well to top level ?? CONFLICT WITH TEMPLATE NAME, WHY NOT SEPARATE
 // FEAT: ignores templates that aren't referenced anywhere
 
+// creating
+walkTreeCompare(newTree, oldTree, (node) => {
+    // only flag the leafs, not the templates in the chain
+    // BUT needs to also flag layouts for reevalutation of properties...
+    node.needsToBeCreated = true;
+}, false);
+
+// deleting
+walkTreeCompare(oldTree, newTree, (node) => {
+    node.needsToBeDeleted = true;
+}, true);
+  
 // -- build deletion dependency tree
 // repeat for each leaf of dependency tree
 //   create add outputPath: inputPath to object

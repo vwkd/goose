@@ -1,3 +1,7 @@
+export function validateOptions(options): void {
+    // throw new Error(`Invalid option: ${...}`);
+}
+
 // source folder (path relative to cwd folder)
 // must contain only legal characters
 
@@ -14,11 +18,13 @@
 // must begin with folder ignore / exclude string
 // must contain only legal characters
 // must not be be in or equal template folder
+// must be in top-level of source directory
 
 // data folder path (path relative to source folder)
 // must begin with folder ignore / exclude string
 // must contain only legal characters
 // must not be be in or equal template folder
+// must be in top-level of source directory
 
 // config file path (path relative to cwd folder)
 // must contain only legal characters

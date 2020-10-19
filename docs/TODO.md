@@ -9,6 +9,12 @@ source, target, template
 
 ## Near term
 
+- add logging to code, every error throw log.error() etc.
+  needs to stringify error? otherwises will call `toString()` method...
+  remove user identifying information from logs, e.g. printing file content
+  how can get rid of uncaught error across module boundaries?
+- find all paths, e.g. in error messages, and normalise, e.g. with src directory, relative to what...
+
 - where is sorting used? sort by date, else by file name
 - allow properties in permalink property
 - allow custom sorting besides date property
@@ -29,9 +35,7 @@ source, target, template
 
 - parallelise
 - incremental building
-- use different argument parser: customisable help menu, shows default values and types, doesn't need command to specify multiple options, aliases for options, etc.
-e.g. -d, -v, -q take no value, -i, -o, -c, etc. take a string
-print help when invalid value instead of error
+- use Deno's Permission APIs when stable
 
 ## Questions
 

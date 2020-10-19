@@ -1,5 +1,7 @@
 .vscode
 .env
+src
+dst
 
 # General
 .DS_Store

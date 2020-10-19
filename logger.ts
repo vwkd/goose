@@ -1,4 +1,4 @@
-// import { Logger } from "./deps.ts";
+// initialises logger, reads environmental variables
 import { ConsoleHandler, FileHandler, Logger, LogLevelNames } from "./deps.ts";
 import { meta } from "./deps.ts";
 import { dotenv } from "./deps.ts";
@@ -17,7 +17,7 @@ const envDefault = {
 
 dotenv({export: true});
 
-// use ?? instead of || because functions return desired value or undefined
+// use ?? instead of || because helper functions return desired value or undefined
 const LOG_CONSOLE = booleanise(Deno.env.get("LOG_CONSOLE")) ?? envDefault.LOG_CONSOLE;
 const LOG_FILE = booleanise(Deno.env.get("LOG_FILE")) ?? envDefault.LOG_FILE;
 const LOG_LEVEL = capitalise(Deno.env.get("LOG_LEVEL")) ?? envDefault.LOG_LEVEL;

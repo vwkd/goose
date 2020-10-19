@@ -1,4 +1,4 @@
-import { walkCall, deepMerge } from "./deps.ts";
+import { walkChainCall, deepMerge } from "./deps.ts";
 
 // TODO: how gets the objects linked up in the first place ?
 //      maybe needs new walkCall that instead of following direct links looks up keys in an array, e.g. by path in fileList
@@ -15,7 +15,7 @@ type file = {
 
 // only for files that have file.action == "process" !!!
 function buildBranch(file) {
-    const treeBranch = walkCall(file, "includes", (node, lastValue) => ({
+    const treeBranch = walkChainCall(file, "includes", (node, lastValue) => ({
         [node.hash]: lastValue ?? null
     }));
     return treeBranch
