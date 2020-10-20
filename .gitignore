@@ -1,7 +1,10 @@
-.vscode
-.env
+# todo: temporary
 src
 dst
+tmp*
+.env
+
+.vscode
 
 # General
 .DS_Store

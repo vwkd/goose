@@ -43,7 +43,6 @@ export {
     walkChainIdCall,
     walkChainMerge,
     walkChainIdMerge
-// } from "./walk_chain.ts";
 } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_chain.ts";
 export { walkTreeCall,  walkTreeLeafCall, walkTreeCompare
 } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_tree.ts";
