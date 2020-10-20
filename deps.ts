@@ -1,3 +1,4 @@
+
 export const meta = {
     name: "goose",
     version: "0.0.1"
@@ -17,7 +18,7 @@ export { parse as minimist } from "https://deno.land/std@0.74.0/flags/mod.ts";
 export { config as dotenv } from "https://deno.land/x/dotenv@v0.5.0/mod.ts";
 
 // todo: expandGlob
-export { walk, walkSync, exists, ensureDir } from "https://deno.land/std@0.74.0/fs/mod.ts";
+export { walk, exists, ensureDir, copy } from "https://deno.land/std@0.74.0/fs/mod.ts";
 
 export {
     basename,
@@ -39,7 +40,10 @@ export { deepMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/m
 export { shallowMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/shallow_merge.ts";
 export {
     walkChainCall,
-    walkChainMerge
+    walkChainIdCall,
+    walkChainMerge,
+    walkChainIdMerge
+// } from "./walk_chain.ts";
 } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_chain.ts";
 export { walkTreeCall,  walkTreeLeafCall, walkTreeCompare
 } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_tree.ts";
@@ -49,5 +53,5 @@ export { walkTreeCall,  walkTreeLeafCall, walkTreeCompare
 // export { valivar } from "https://deno.land/x/valivar@v6.2.9/mod.ts";
 
 // export { default as graymatter } from 'https://cdn.skypack.dev/gray-matter';
-export { Marked } from "https://deno.land/x/markdown@v2.0.0/mod.ts"
-export { parse as yamlParse } from "https://deno.land/std@0.74.0/encoding/yaml.ts";
+// export { Marked } from "https://deno.land/x/markdown@v2.0.0/mod.ts"
+// export { parse as yamlParse } from "https://deno.land/std@0.74.0/encoding/yaml.ts";

@@ -1,20 +1,21 @@
+// quick primer on paths: can contain almost all characters, even spaces, just treats it as a valid path
+
 import { log } from "./logger.ts";
 import type { options } from "./types.ts";
 import {
     exists,
     ensureDir,
     walk,
-    walkSync,
+    copy,
     parse as pathParse,
     sep as pathSeparator,
     join as pathJoin,
     createHash,
-    Marked,
-    yamlParse,
     shallowMerge,
-    deepMerge
+    deepMerge,
+    walkChainIdCall,
+    walkChainIdMerge
 } from "./deps.ts";
-import { parse as frontmatterParse } from "./frontmatter.ts";
 
 // todo: respect verbose and quiet options
 
@@ -24,17 +25,18 @@ import { parse as frontmatterParse } from "./frontmatter.ts";
  * @param options options to build
  */
 export async function build(options: options) {
-    // todo: tmp
+    // todo: tmp, import from .goose.js
     options.ignoredFilename = "_";
     options.ignoredDirname = "_";
     options.layoutDirectory = "_layouts";
     options.dataDirectory = "_data";
-    options.renderedFiletypes = [".md", ".html"];
     options.incrementalBuild = false;
-    options.frontmatterParser = yamlParse;
-    options.frontmatterDelimiter = "---";
     // todo: clean options, e.g. strip `.` and `/` infront of folders, otherwise startsWith won't match in build()...
-    // todo: validate properties, e.g. frontmatterParser, frontmatterDelimiter, etc.
+    // todo: validate properties, best in bulk wherever they're loaded in
+    options.transformations = {
+        ".html": [],
+        ".css": [str => str + "hi"],
+    };
 
     log.info("Build started.");
     log.debug(`Build options: ${JSON.stringify(options)}`);
@@ -98,7 +100,7 @@ export async function build(options: options) {
             else if (dir.split(pathSeparator).some(str => str.startsWith(options.ignoredDirname))) {
                 log.trace(`File is ignored because of directory name: ${item.path}`);
                 files.ignored.push(file);
-            } else if (options.renderedFiletypes.includes(ext)) {
+            } else if (ext == ".js") {
                 log.trace(`File is template because of extension: ${item.path}`);
                 // outputPath/Directory because is outputted, can change later due to local properties
                 file.outputPath = pathJoin(options.output, file.inputPathRelative);
@@ -117,9 +119,12 @@ export async function build(options: options) {
         console.log(e);
     }
 
-    // ------ save assets ------
-    // don't await, because should run concurrently
-    write(files.assets, options.dryrun);
+    // ------ copy assets ------
+    // start as early as possible to give time
+    // don't await, runs concurrently
+    if (!options.dryrun) {
+        copyFiles(files.assets);
+    }
 
     // ------ load global data ------
     const globalData = [];
@@ -131,15 +136,12 @@ export async function build(options: options) {
         globalData.push(...Object.values(o));
     }
 
-    // ------ load local data ------
-
-    const frontmatterOptions = {
-        parser: options.frontmatterParser,
-        delimiter: options.frontmatterDelimiter
-    };
+    // ------ load layouts ------
+    // loads all layouts into memory, assumes there are not many
 
     // todo: make robust, don't save content in memory as object property, instead for each file compute everything and write out immediately
     for (const file of files.layouts) {
+        log.debug(`--- Process layout ${file.inputPath} ---`);
         // todo: make robust, how does import function, what does do with complex values...
         const relPath = "." + pathJoin(pathSeparator, file.inputPath);
         let layout = undefined;
@@ -167,115 +169,146 @@ export async function build(options: options) {
         }
         // if data is non-object, empty object, or doesn't have layout property, is simply undefined
         const { layout: layoutPathRelative, ...data } = layout.data;
+        // todo: validate layout: string, single path, no ../ anywhere, etc.
         file.layoutPathRelative = layoutPathRelative;
         file.data = data;
         log.debug(`Layout frontmatter: ${JSON.stringify(file.data)}`);
     }
 
-/*     for (const file of files.templates) {
-        const content = await Deno.readTextFile(file.inputPath);
-        log.debug(`File content: ${JSON.stringify(content)}`);
+    // ------ process templates ------
+    // process and write all in single pass
+    for (const file of files.templates) {
+        log.debug(`--- Process template ${file.inputPath} ---`);
 
-        const frontmatter = frontmatterParse(content, frontmatterOptions);
-        log.debug(`Template frontmatter: ${JSON.stringify(frontmatter)}`);
-        const { layout: layoutPathRelative, permalink, ...data } = frontmatter.data;
-        // todo: validate layout: string, single path, no ../ anywhere, etc.
+        // ---------- load template ----------
+
+        // todo: make robust, how does import function, what does do with complex values...
+        const relPath = "." + pathJoin(pathSeparator, file.inputPath);
+        let template = undefined;
+        try {
+            template = await import(relPath);
+        } catch (e) {
+            throw new Error(`Template ${file.inputPath} couldn't be imported. ${e.message}`);
+        }
+
+        // todo: validation, render returns string, data deep merges well with all kinds of data objects (string, bigint, regexp, ...)
+        if (!template.render) {
+            throw new Error(`Template ${file.inputPath} doen't export a render function.`);
+        }
+        if (typeof template.render != "function") {
+            throw new Error(`Template ${file.inputPath} render function must be a function.`);
+        }
+        file.render = template.render;
+
+        // todo: validation, data can be anything...
+        if (!template.data) {
+            log.warn(`Template ${file.inputPath} doen't export a data object.`);
+        }
+        if (typeof template.data == "function") {
+            throw new Error(`Template ${file.inputPath} data object must not be a function.`);
+        }
+        // if data is non-object, empty object, or doesn't have layout property, is simply undefined
+        const { layout: layoutPathRelative, permalink, ...data } = template.data;
+
+        file.data = data;
+        log.debug(`Template frontmatter: ${JSON.stringify(file.data)}`);
+
+        // validate layout path
+        if (layoutPathRelative) {
+            if (typeof layoutPathRelative != "string") {
+                throw new Error(`Layout path in template ${file.inputPath} must be a string.`);
+            }
+            const layoutPathRelativeArr = layoutPathRelative.split(pathSeparator);
+            if (layoutPathRelativeArr.includes("..")) {
+                throw new Error(`Layout path ${layoutPathRelative} in template ${file.inputPath} can't contain "..".`);
+            }
+        }
         file.layoutPathRelative = layoutPathRelative;
-        // todo: validate permalink, e.g. no ../ anywhere, etc.
+
+        // validate permalink
+        if (permalink) {
+            if (typeof permalink != "string") {
+                throw new Error(`Permalink in template ${file.inputPath} must be a string.`);
+            }
+            const outputPathRelativeArr = permalink.split(pathSeparator);
+            if (outputPathRelativeArr.includes("..")) {
+                throw new Error(`Permalink ${permalink} in template ${file.inputPath} can't contain "..".`);
+            }
+        }
         file.outputPathRelative = permalink || file.inputPathRelative;
         file.outputPath = pathJoin(options.output, file.outputPathRelative);
-        file.outputDirectory = pathParse(file.outputPath).dir;
-        file.data = data;
+        const { dir, ext, name, base } = pathParse(file.outputPathRelative);
+        file.outputDirectoryRelative = dir;
+        file.outputDirectory = pathJoin(options.output, file.outputDirectoryRelative);
+        file.outputExtension = ext;
+        file.outputName = name;
+        file.outputBase = base;
 
-        const markup = Marked.parse(frontmatter.content);
-        log.debug(`Template markup: ${JSON.stringify(markup)}`);
-        file.content = markup.content; */
-    }
+        log.debug(`File: ${JSON.stringify(file)}`);
 
-    // ------ parse markdown ------
-    // todo: change markdown to simple output transformation.
+        // ---------- compute data properties ----------
 
-    // todo: how to use variables in markdown ???
+        // todo: merge in global data, allow for shallowMerge
+        // todo: build mergedData for templates in advance, doesn't need to compute same for every template...
+        const mergedData = walkChainIdMerge({
+            startNode: file,
+            nodeList: files.layouts,
+            linkName: "layoutPathRelative",
+            idName: "inputPathRelativeToLayout",
+            mergeProperty: "data",
+            mergeFunction: deepMerge
+        });
+        log.debug(`Merged data: ${JSON.stringify(mergedData)}`);
 
-    // ------ parse templates ------
-    // todo:
-    for (const file of files.templates) {
-        // todo: validate no circular imports
-        console.log("TMPL", file);
+        // ---------- render ----------
 
-        // todo: build merged data
-        // todo: merge global data, allow for shallowMerge
-        const data = deepMerge(layout.data, file.data);
-
-        const res = renderRecursively(file, file.content, file.data, []);
-/*         if (file.layoutPathRelative) {
-            // path of layout is guaranteed to be unique because files in file system are unique
-            const layout = files.layouts.find(lay => lay.inputPathRelativeToLayout == file.layoutPathRelative);
-
-            const str = layout.render(file.content, data);
-
-            if (layout.layoutPathRelative) {
-                // ... recursive
+        function tryRender(node, lastValue, data) {
+            let str = undefined;
+            try {
+                str = node.render(data, lastValue);
+            } catch (e) {
+                throw new Error(`Template ${node.inputPath} render function threw an error. ${e.message}`);
             }
-        } */
-
-
-    }
-
-    // todo: walk once already to build merged data, such that it's available and same for every file in chain
-
-    function renderRecursively(template, renderedString: string, mergedData, usedLayouts: string[]): string {
-        log.trace(`Used layouts: ${usedLayouts}`);
-
-        // path is circular
-        if (usedLayouts.includes(template.layoutPathRelative)) {
-            console.warn(
-                `Layout ${template.inputPathRelative} has a circular dependency on ${template.layoutPathRelative}. Won't compute further layouts.`
-            );
-            return renderedString;
+            if (typeof str != "string") {
+                throw new Error(`Template ${node.inputPath} render function must return a string.`);
+            }
+            return str;
         }
 
-        // template has layout
-        if (template.layoutPathRelative) {
-            // try to find layout, guaranteed to be unique because path is unique
-            const layout = files.layouts.find(el => el.inputPathRelativeToLayout == template.layoutPathRelative);
+        const renderedContent = walkChainIdCall({
+            startNode: file,
+            nodeList: files.layouts,
+            linkName: "layoutPathRelative",
+            idName: "inputPathRelativeToLayout",
+            callback: tryRender,
+            data: mergedData
+        });
 
-            // path was invalid
-            if (!layout) {
-                console.warn(
-                    `Layout ${template.layoutPathRelative} for ${template.inputPathRelative} couldn't be found. Won't compute further layouts.`
-                );
-                return renderedString;
-            }
+        log.debug(`Rendered content: ${JSON.stringify(renderedContent)}`);
 
-            // render layout
-            else {
-                let str = undefined;
-                try {
-                    str = layout.render(renderedString, mergedData);
-                } catch (e) {
-                    throw new Error(`Layout ${layout.inputPath} render function threw an error. ${e.message}`);
-                }
+        // ---------- transform ----------
+
+        // todo: validate transformations, functions take string and return string, etc. like for templates
+        const transformations = options.transformations[file.outputExtension];
+
+        // if transformations is empty, returns initial value renderedContent
+        const transformedContent = transformations.reduce((acc, transform) => {
+                const str = transform(acc);
                 if (typeof str != "string") {
-                    throw new Error(`Layout ${layout.inputPath} render function must return a string.`);
+                    throw new Error(`The transformation "${transform.name || "(anonymous)"}" must return a string.`);
                 }
+                return str;
+            }, renderedContent);
 
-                // log.trace(`Rendered string: ${str}`);
-                return renderRecursively(layout, str, mergedData, [...usedLayouts, template.layoutPathRelative]);
-            }
-        }
+        log.debug(`Transformed content: ${JSON.stringify(transformedContent)}`);
 
-        // template has no layout
-        else {
-            // log.trace(`Nothing more to render: ${renderedString}`);
-            return renderedString;
+        // ---------- write out ----------
+
+        if (!options.dryrun) {
+            // don't await, runs concurrently
+            writeFile(file.outputPath, file.outputDirectory, transformedContent);
         }
     }
-
-    // ------ save templates ------
-    // overwrites any files in the directory
-
-    write(files.templates, options.dryrun);
 
     const endTime = performance.now();
     const duration = (endTime - startTime) / 1000;
@@ -285,13 +318,28 @@ export async function build(options: options) {
     log.info("Build ended.");
 }
 
-async function write(files, dryrun) {
-    if (dryrun) {
-        return;
-    }
+// todo: this only writes, not copies
+async function copyFiles(files) {
     for (const file of files) {
-        log.debug(`Writing: ${file.outputPath}...`);
+        log.debug(`Copying: ${file.outputPath}...`);
         await ensureDir(file.outputDirectory);
-        await Deno.writeTextFile(file.outputPath, file.content);
+        await copy(file.inputPath, file.outputPath);
+    }
+}
+
+async function writeFile(path, directory, content) {
+    log.debug(`Writing: ${path}...`);
+    await ensureDir(directory);
+    await Deno.writeTextFile(path, content);
+}
+
+// todo: use inline because can customise error paths
+function validatePath(str) {
+    if (typeof str != "string") {
+        throw new Error(`Path must be a string.`);
+    }
+    const segments = str.split(pathSeparator);
+    if (segments.includes("..")) {
+        throw new Error(`Path ${permalink} can't contain "..".`);
     }
 }

@@ -13,6 +13,9 @@ source, target, template
   needs to stringify error? otherwises will call `toString()` method...
   remove user identifying information from logs, e.g. printing file content
   how can get rid of uncaught error across module boundaries?
+  wrap all user functions in try..catch blocks, e.g. render, imports, transformations, etc.
+- what if script finishes earlier than unawaited promises and they throw an error?
+  needs to await it at the most outer level, then catch any
 - find all paths, e.g. in error messages, and normalise, e.g. with src directory, relative to what...
 
 - where is sorting used? sort by date, else by file name
@@ -42,3 +45,5 @@ source, target, template
 CLI options
 // -f, --format         processed file types ??NEEDED?? ?? Would also need to parse as array where string has spaces
 // -p, --pathprefix     url template filter directory ?? NEEDED??
+
+What about markdown? Write inside template string as well?

@@ -62,13 +62,6 @@ Options:            Description:        Default:
         console.log(`Invalid input.`);
     }
 
-    try {
-        await parseCommands(minimist(Deno.args, options));
-    } catch (e) {
-        // log.critical(`Uncaught error in build. ${e}`);
-        throw new Error(`Oops! Uncaught error in build. ${e.message}`);
-    }
-
     async function parseCommands(args) {
         log.debug(`User options: ${JSON.stringify(args)}`);
 
@@ -128,6 +121,7 @@ Options:            Description:        Default:
             // read from config file
             // todo: convert config to .js module
             // todo: allow for non-existent config file
+            // todo: move to config.ts module
             let config;
             try {
                 config = JSON.parse(await Deno.readTextFile(argsFiltered.config));
@@ -150,8 +144,21 @@ Options:            Description:        Default:
             // const mergedConfig: options = Object.assign({}, config, argsFiltered);
             const mergedConfig: options = Object.assign({}, argsFiltered, config);
 
-            await build(mergedConfig);
+            try {
+                await build(mergedConfig);
+            } catch(e) {
+                log.critical(`Error in build. ${e}`);
+                throw new Error(`Found invalid option. ${e.message}`);
+            }
         }
+    }
+
+    try {
+        await parseCommands(minimist(Deno.args, options));
+    } catch (e) {
+        // todo: write descriptive error message, outer most error handler
+        log.critical(`Error in parsing. ${e}`);
+        throw new Error(`Error in parsing. ${e.message}`);
     }
 
     log.info("Application ended.");
