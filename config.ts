@@ -35,7 +35,8 @@ export async function loadConfig(configPath) {
     // docs: getTransformations returns array or undefined if not found
     // docs: incremental build
 
-    const configArgument = {
+    // freeze such that user can't add properties by accident that then get silently ignored
+    const configArgument = Object.freeze({
         get sourceDirname() {
             return defaultConfig.sourceDirname;
         },
@@ -150,7 +151,7 @@ export async function loadConfig(configPath) {
             }
             defaultConfig.incrementalBuild = val;
         },
-    };
+    });
 
     let configFile = undefined;
 
@@ -191,8 +192,7 @@ export async function loadConfig(configPath) {
 
     // execute
     try {
-        // freeze argument such that can't add non-existent properties that then get silently ignored
-        configFunc(Object.freeze(configArgument));
+        configFunc(configArgument);
     } catch (e) {
         throw new Error(`Config ${configPath} config function threw an error. ${e.message}`);
     }
