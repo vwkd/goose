@@ -39,6 +39,7 @@ source, target, template
 - parallelise
 - incremental building
 - use Deno's Permission APIs when stable
+- preprocessor that converts MD with frontmatter into `.md.js` ? What about variables ?
 
 ## Questions
 

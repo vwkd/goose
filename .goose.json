@@ -1,8 +1,0 @@
-{
-"source": "src",
-"target": "dst",
-"config": "NONONONONO",
-"dryrun": true,
-"verbose": false,
-"quiet": false
-}

@@ -61,7 +61,7 @@ Note, the config path may not be inside the source or the target directory.
 <!-- todo: find better name for function and argument -->
 You can configure goose by creating a `.js` file that exports a `config` function that takes a `config` object as argument. If no config flag is provided, goose looks by default for a `.goose.js` file in the current working directory.
 
-The following properties can be set on the config object. Note, you can read the properties as well to see what the defaults are.
+The following properties can be set on the config object. Note, you can also read the properties at any time and they reflect the currently value.
 
 - `.source`: source directory path relative to cwd, string, defaults to `src`
 - `.target`: target directory path relative to cwd, string, defaults to `dst`
@@ -76,7 +76,9 @@ Note, `ignoredDirname` is evaluated later than `dataDirname` and `layoutDirname`
 
 The following methods can be called on the config object.
 
-- `.transformation(inputExt, outputExt, func)`: transformation for a template that has extension `inputExt` in the source directory and `outputExt` in the output directory using the function `func`, defaults to none
+<!-- ToDo: How to read the values? -->
+
+- `.transformation(inputExt, outputExt, func1, ..., funcN)`: transformation for a template that has extension `inputExt` in the source directory and `outputExt` in the output directory using the function `func`, defaults to none
 
 <!-- todo: allow for wildcards, are executed after more specific transformations, wildcard in output is executed before wildcard in input ?? better allow to configure...
 .md .html e.g. compile

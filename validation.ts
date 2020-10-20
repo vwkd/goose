@@ -1,6 +1,4 @@
-export function validateOptions(options): void {
-    // throw new Error(`Invalid option: ${...}`);
-}
+// TODO: integrate into validateConfig in config.ts
 
 // source folder (path relative to cwd folder)
 // must contain only legal characters

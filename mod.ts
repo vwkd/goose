@@ -1,8 +1,7 @@
 import { meta, minimist } from "./deps.ts";
-import { build as build } from "./build.ts";
+import { build } from "./build.ts";
 import { log } from "./logger.ts";
-import { validateOptions } from "./validation.ts";
-import type { options } from "./types.ts"
+import { loadConfig, validateConfig } from "./config.ts";
 
 /**
  * Entry point of application
@@ -13,29 +12,17 @@ import type { options } from "./types.ts"
 if (import.meta.main) {
     log.info("Application started.");
 
-    const defaultOptions = {
-        // input: "src",
-        // output: "dst",
-        config: ".goose.json",
-        dryrun: false,
-        verbose: false,
-        quiet: false
-    };
-
     const options = {
-        string: [/* "input", "output", */ "config"],
-        boolean: ["dryrun", "verbose", "quiet", "help", "version"],
+        string: ["config"],
+        boolean: ["dryrun", /* "verbose", "quiet", */ "help", "version"],
         alias: {
-            // input: ["i", "source"],
-            // output: ["o", "target"],
             config: ["c"],
             dryrun: ["d"],
-            verbose: ["b"],
-            quiet: ["q"],
+            // verbose: ["b"],
+            // quiet: ["q"],
             help: ["h"],
             version: ["v"]
         },
-        default: defaultOptions
     };
 
     function printVersion() {
@@ -47,12 +34,10 @@ if (import.meta.main) {
         console.log(`usage: ${meta.name} [<options>]`);
         console.log(`
 Options:            Description:        Default:
-// -i, --input         source directory    "src"
-// -o, --output        target directory    "dst"
 -c, --config        config path         ".goose.js"
 -d, --dryrun        dry run
--b, --verbose       log more
--q, --quiet         log less
+// -b, --verbose       log more
+// -q, --quiet         log less
 -h, --help          show help
 -v, --version       print version
 `);
@@ -67,9 +52,9 @@ Options:            Description:        Default:
 
         // doesn't prevent senseless combination of multiple options
         // just yields to options by decreasing order of importance
-        // doesn't validate paths except that non-empty
 
         // if anywhere unknown option
+        // also conveniently filters an empty string config `-c ""`
         if (args._.length > 0) {
             log.trace("Anywhere unknown option.");
             printInvalid();
@@ -89,67 +74,28 @@ Options:            Description:        Default:
         }
 
         // if both verbose and quiet
-        else if (args.verbose && args.quiet) {
+/*         else if (args.verbose && args.quiet) {
             log.trace("Both verbose and quiet option.");
             printInvalid();
             printHelp();
-        }
+        } */
 
-        // if any path is empty
-        // note: if undefined by user, would have default value which is non-empty
-        else if (/* !args.input.trim() || !args.output.trim() || */ !args.config.trim()) {
-            log.trace("Any empty path option.");
-            printInvalid();
-            printHelp();
-        }
-
-        // end of simple validation
         else {
-            log.trace("Successfully passed validation.");
-
-            const argsFiltered = {
-                // input: args.input.trim(),
-                // output: args.output.trim(),
-                config: args.config.trim(),
+            const globalFlags = {
                 dryrun: args.dryrun,
-                verbose: args.verbose,
-                quiet: args.quiet
-            };
-
-            log.debug(`Filtered options: ${JSON.stringify(argsFiltered)}`);
-
-            // read from config file
-            // todo: convert config to .js module
-            // todo: allow for non-existent config file
-            // todo: move to config.ts module
-            let config;
-            try {
-                config = JSON.parse(await Deno.readTextFile(argsFiltered.config));
-            } catch (e) {
-                log.error(`Couldn't read config file. ${e}`);
-                throw new Error(`Couldn't read config file. ${e.message}`);
+                // verbose: args.verbose,
+                // quiet: args.quiet
             }
 
-            log.debug(`Loaded config: ${JSON.stringify(config)}`)
+            log.debug(`Global flags: ${JSON.stringify(globalFlags)}`);
 
-            // todo: validate options, e.g. build input != output, config not in input/output, etc.
-            try {
-                validateOptions(config);
-            } catch (e) {
-                log.error(`Found invalid option. ${e}`);
-                throw new Error(`Found invalid option. ${e.message}`);
-            }
+            const config = await loadConfig(args.config?.trim(), globalFlags);
 
-            // todo: fix that defaults from minimist overwrite loaded config
-            // const mergedConfig: options = Object.assign({}, config, argsFiltered);
-            const mergedConfig: options = Object.assign({}, argsFiltered, config);
+            log.debug(`Loaded config: ${JSON.stringify(config)}`);
 
-            try {
-                await build(mergedConfig);
-            } catch(e) {
-                log.critical(`Error in build. ${e}`);
-                throw new Error(`Found invalid option. ${e.message}`);
-            }
+            validateConfig(config);
+
+            await build(config, globalFlags);
         }
     }
 

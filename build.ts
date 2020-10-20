@@ -1,7 +1,10 @@
 // quick primer on paths: can contain almost all characters, even spaces, just treats it as a valid path
 
+// todo: add module name at beginning of error & log statements, because bubble up
+
+// todo: implement incremental build
+
 import { log } from "./logger.ts";
-import type { options } from "./types.ts";
 import {
     exists,
     ensureDir,
@@ -23,52 +26,39 @@ import {
 /**
  * Heart of application.
  * Builds files from options.
- * @param options options to build
+ * @param config options to build
  */
-export async function build(options: options) {
-    // todo: tmp, import from .goose.js
-    options.ignoredFilename = "_";
-    options.ignoredDirname = "_";
-    options.layoutDirectory = "_layouts";
-    options.dataDirectory = "_data";
-    options.incrementalBuild = false;
-    // todo: clean options, e.g. strip `.` and `/` infront of folders, otherwise startsWith won't match in build()...
-    // todo: validate properties, best in bulk wherever they're loaded in
-    options.transformations = {
-        ".html": [],
-        ".css": [str => str + "hi"]
-    };
-
+export async function build(config, flags) {
     log.info("Build started.");
-    log.debug(`Build options: ${JSON.stringify(options)}`);
+    log.debug(`Build options: ${JSON.stringify(config)}`);
 
     const startTime = performance.now();
 
     // ------ validate directories ------
-    const sourceFolderExists = await exists(options.source);
+    const sourceFolderExists = await exists(config.sourceDirname);
 
     if (!sourceFolderExists) {
-        throw new Error(`Source folder ${options.source} doesn't exist.`);
+        throw new Error(`Source folder ${config.sourceDirname} doesn't exist.`);
     }
 
-    const targetFolderExists = await exists(options.target);
+    const targetFolderExists = await exists(config.targetDirname);
 
     // beware: in meantime user could create target folder, overwrites because no second check before writing
-    if (!options.incrementalBuild && targetFolderExists) {
-        throw new Error(`Target folder ${options.target} already exists.`);
-    } else if (options.incrementalBuild && !targetFolderExists) {
-        console.warn(`Target folder ${options.target} doesn't exist. Will do a full build instead.`);
+    if (!config.incrementalBuild && targetFolderExists) {
+        throw new Error(`Target folder ${config.targetDirname} already exists.`);
+    } else if (config.incrementalBuild && !targetFolderExists) {
+        console.warn(`Target folder ${config.targetDirname} doesn't exist. Will do a full build instead.`);
     }
 
     // ------ load files ------
     // templates are rendered, assets are copied, rest is ignored
     const files = { templates: [], assets: [], ignored: [], layouts: [], globaldata: [] };
 
-    const dataDirectory = pathJoin(options.source, options.dataDirectory);
-    const layoutDirectory = pathJoin(options.source, options.layoutDirectory);
+    const dataDirectory = pathJoin(config.sourceDirname, config.dataDirname);
+    const layoutDirectory = pathJoin(config.sourceDirname, config.layoutDirname);
 
     try {
-        for await (const item of walk(options.source, { includeDirs: false })) {
+        for await (const item of walk(config.sourceDirname, { includeDirs: false })) {
             const { dir, ext, name, base } = pathParse(item.path);
 
             const [_a, ...sourcePathRelativeArr] = item.path.split(pathSeparator);
@@ -84,7 +74,7 @@ export async function build(options: options) {
                 sourceBase: base
             };
 
-            if (name.startsWith(options.ignoredFilename)) {
+            if (name.startsWith(config.ignoredFilename)) {
                 log.trace(`File is ignored because of filename: ${item.path}`);
                 files.ignored.push(file);
             } else if (dir.startsWith(dataDirectory)) {
@@ -98,7 +88,7 @@ export async function build(options: options) {
             }
 
             // after check for dataDirectory and layoutDirectory such that they can use ignoredFilename
-            else if (dir.split(pathSeparator).some(str => str.startsWith(options.ignoredDirname))) {
+            else if (dir.split(pathSeparator).some(str => str.startsWith(config.ignoredDirname))) {
                 log.trace(`File is ignored because of directory name: ${item.path}`);
                 files.ignored.push(file);
             }
@@ -116,15 +106,15 @@ export async function build(options: options) {
                 } else {
                     log.trace(`File is asset because of single ".js" extension: ${item.path}`);
                     // outputted, compute targetPath now because won't change later
-                    file.targetPath = pathJoin(options.target, file.sourcePathRelative);
-                    file.targetDirectory = pathJoin(options.target, file.sourceDirectoryRelative);
+                    file.targetPath = pathJoin(config.targetDirname, file.sourcePathRelative);
+                    file.targetDirectory = pathJoin(config.targetDirname, file.sourceDirectoryRelative);
                     files.assets.push(file);
                 }
             } else {
                 log.trace(`File is asset because everything else: ${item.path}`);
                 // outputted, compute targetPath now because won't change later
-                file.targetPath = pathJoin(options.target, file.sourcePathRelative);
-                file.targetDirectory = pathJoin(options.target, file.sourceDirectoryRelative);
+                file.targetPath = pathJoin(config.targetDirname, file.sourcePathRelative);
+                file.targetDirectory = pathJoin(config.targetDirname, file.sourceDirectoryRelative);
                 files.assets.push(file);
             }
         }
@@ -136,7 +126,7 @@ export async function build(options: options) {
     // ------ copy assets ------
     // start as early as possible to give time
     // don't await, runs concurrently
-    if (!options.dryrun) {
+    if (!flags.dryrun) {
         copyFiles(files.assets);
     }
 
@@ -254,10 +244,10 @@ export async function build(options: options) {
             }
         }
         file.targetPathRelative = permalink || file.sourcePathRelativeWithoutJsExtension;
-        file.targetPath = pathJoin(options.target, file.targetPathRelative);
+        file.targetPath = pathJoin(config.targetDirname, file.targetPathRelative);
         const { dir, ext, name, base } = pathParse(file.targetPathRelative);
         file.targetDirectoryRelative = dir;
-        file.targetDirectory = pathJoin(options.target, file.targetDirectoryRelative);
+        file.targetDirectory = pathJoin(config.targetDirname, file.targetDirectoryRelative);
         file.targetExtension = ext;
         file.targetName = name;
         file.targetBase = base;
@@ -307,7 +297,7 @@ export async function build(options: options) {
         // ---------- transform ----------
 
         // todo: validate transformations, functions take string and return string, etc. like for templates
-        const transformations = options.transformations[file.sourceExtension + file.targetExtension];
+        const transformations = config.transformations[file.sourceExtension + file.targetExtension];
 
         // if transformations is empty, returns initial value renderedContent
         // if transformations itself is undefined, defaults to renderedContent
@@ -322,7 +312,7 @@ export async function build(options: options) {
 
         // ---------- write out ----------
 
-        if (!options.dryrun) {
+        if (!flags.dryrun) {
             // don't await, runs concurrently
             writeFile(file.targetPath, file.targetDirectory, transformedContent);
         }
