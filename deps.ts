@@ -1,4 +1,3 @@
-
 export const meta = {
     name: "goose",
     version: "0.0.1"
@@ -6,14 +5,9 @@ export const meta = {
 
 // todo: exchange once #7293 is merged
 // export * as log from "https://deno.land/std@0.74.0/log/mod.ts";
-export {
-    Logger,
-    ConsoleHandler,
-    FileHandler,
-    LogLevelNames
-} from "./logging/mod.ts";
+export { Logger, ConsoleHandler, FileHandler, LogLevelNames } from "./logging/mod.ts";
 
-export { parse as minimist } from "https://deno.land/std@0.74.0/flags/mod.ts";
+export { parse as cliParse } from "https://deno.land/std@0.74.0/flags/mod.ts";
 
 export { config as dotenv } from "https://deno.land/x/dotenv@v0.5.0/mod.ts";
 
@@ -34,9 +28,8 @@ export {
 
 export { createHash } from "https://deno.land/std@0.74.0/hash/mod.ts";
 
-
 // todo: pin version
-export { deepMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/deep_merge.ts";
+export { deepMerge, deepMergeArr } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/deep_merge.ts";
 export { shallowMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/shallow_merge.ts";
 export {
     walkChainCall,
@@ -44,7 +37,10 @@ export {
     walkChainMerge,
     walkChainIdMerge
 } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_chain.ts";
-export { walkTreeCall,  walkTreeLeafCall, walkTreeCompare
+export {
+    walkTreeCall,
+    walkTreeLeafCall,
+    walkTreeCompare
 } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_tree.ts";
 
 // export { v4 as uuid } from "https://deno.land/std@0.74.0/uuid/mod.ts";

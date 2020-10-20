@@ -3,9 +3,6 @@
 [TOC]
 
 
-## Terminology
-
-source, target, template
 
 ## Near term
 
@@ -39,12 +36,11 @@ source, target, template
 - parallelise
 - incremental building
 - use Deno's Permission APIs when stable
-- preprocessor that converts MD with frontmatter into `.md.js` ? What about variables ?
+- editor extension for content in template strings, e.g. markdown
+- examples...
 
 ## Questions
 
 CLI options
 // -f, --format         processed file types ??NEEDED?? ?? Would also need to parse as array where string has spaces
 // -p, --pathprefix     url template filter directory ?? NEEDED??
-
-What about markdown? Write inside template string as well?

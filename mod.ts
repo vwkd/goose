@@ -1,14 +1,9 @@
-import { meta, minimist } from "./deps.ts";
-import { build } from "./build.ts";
 import { log } from "./logger.ts";
-import { loadConfig, validateConfig } from "./config.ts";
+import { meta, cliParse } from "./deps.ts";
+import { loadConfig } from "./config.ts";
+import { build } from "./build.ts";
 
-/**
- * Entry point of application
- * Parses CLI and file options, calls build
- */
-
-// just run when it's not imported
+// just run when module isn't imported
 if (import.meta.main) {
     log.info("Application started.");
 
@@ -22,14 +17,13 @@ if (import.meta.main) {
             // quiet: ["q"],
             help: ["h"],
             version: ["v"]
-        },
+        }
     };
 
     function printVersion() {
         console.log(`${meta.name} v${meta.version}`);
     }
 
-    // todo: specify default values
     function printHelp() {
         console.log(`usage: ${meta.name} [<options>]`);
         console.log(`
@@ -47,64 +41,81 @@ Options:            Description:        Default:
         console.log(`Invalid input.`);
     }
 
-    async function parseCommands(args) {
+    async function filterFlags(args) {
         log.debug(`User options: ${JSON.stringify(args)}`);
 
         // doesn't prevent senseless combination of multiple options
         // just yields to options by decreasing order of importance
 
         // if anywhere unknown option
-        // also conveniently filters an empty string config `-c ""`
+        // also filters empty string config `-c ""`
         if (args._.length > 0) {
             log.trace("Anywhere unknown option.");
             printInvalid();
             printHelp();
+            return undefined;
         }
 
         // if anywhere help
         else if (args.help) {
             log.trace("Anywhere help option.");
             printHelp();
+            return undefined;
         }
 
         // if anywhere version
         else if (args.version) {
             log.trace("Anywhere version option.");
             printVersion();
+            return undefined;
         }
 
         // if both verbose and quiet
-/*         else if (args.verbose && args.quiet) {
+        /*         else if (args.verbose && args.quiet) {
             log.trace("Both verbose and quiet option.");
             printInvalid();
             printHelp();
         } */
 
-        else {
-            const globalFlags = {
-                dryrun: args.dryrun,
-                // verbose: args.verbose,
-                // quiet: args.quiet
-            }
+        // configPath is undefined if -c isn't provided
+        const flags = {
+            dryrun: args.dryrun,
+            configPath: args.config?.trim(),
+            // verbose: args.verbose,
+            // quiet: args.quiet
+        };
 
-            log.debug(`Global flags: ${JSON.stringify(globalFlags)}`);
-
-            const config = await loadConfig(args.config?.trim(), globalFlags);
-
-            log.debug(`Loaded config: ${JSON.stringify(config)}`);
-
-            validateConfig(config);
-
-            await build(config, globalFlags);
-        }
+        return flags;
     }
 
+    // ----- Parse CLI flags -----
+    let flags = undefined;
     try {
-        await parseCommands(minimist(Deno.args, options));
+        flags = await filterFlags(cliParse(Deno.args, options));
+        log.debug(`Parsed flags: ${JSON.stringify(flags)}`);
     } catch (e) {
-        // todo: write descriptive error message, outer most error handler
-        log.critical(`Error in parsing. ${e}`);
-        throw new Error(`Error in parsing. ${e.message}`);
+        log.critical(`Couldn't parse CLI flags. ${e.message}`);
+        throw new Error(`Couldn't parse CLI flags. ${e.message}`);
+    }
+
+    // ----- Load config -----
+    let config = undefined;
+    try {
+        config = await loadConfig(flags);
+        log.debug(`Loaded config: ${JSON.stringify(config)}`);
+    } catch (e) {
+        log.critical(`Couldn't load config. ${e.message}`);
+        throw new Error(`Couldn't load config. ${e.message}`);
+    }
+
+    // ----- Build files -----
+    let stats = undefined;
+    try {
+        stats = await build(config, flags);
+        log.debug(`Built files: ${JSON.stringify(stats)}`);
+    }catch (e) {
+        log.critical(`Couldn't build files. ${e.message}`);
+        throw new Error(`Couldn't build files. ${e.message}`);
     }
 
     log.info("Application ended.");

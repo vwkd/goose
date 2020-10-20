@@ -10,6 +10,10 @@
 This page explains how goose works in more detail. If you just want to see the available configurations, see [README](./README.md)
 
 
+It uses pure JavaScript templates for maximum flexibility. You don't have to learn another template language.
+
+It doesn't inject any JavaScript, styles, or markup into your files.
+
 
 ## Overview
 
@@ -27,7 +31,7 @@ In goose, templates are written in JavaScript. This might seem weird at first, b
 
 A template is any file in the source folder with a double extension that ends on `.*.js`, that is not in in the layouts or data directory and also not ignored. It doesn't need to be HTML, it could be anything else, including CSS and even JavaScript by giving it a `.js.js` extension. It is entirely up to you what file a template should represent. Powerful!
 
-A template must export a `render` function that returns a string. It's entirely up to you how you assemble this string, you can use any computations you like and tap into the whole JavaScript ecosystem. Powerful!
+A template must export a `render` function that returns a string. It's entirely up to you how you assemble this string, you can use any computations you like and tap into the whole JavaScript ecosystem. Powerful! Note, the render function can not be async (unlike a global data export function).
 
 Note, the double extension convention imposes a slight restriction on the filename of any `.js` file that is not a template, because if your `.js` filen contains dots in the filename it will be interpreted as a template. But as long as it's a template, you can use as many dots as you like in the filename, as only the last two are relevant, e.g. `some.file.html.js`. Note, a hidden `.js` file which doesn't contain more dots besides a leading dot is correctly interpreted as asset, e.g. `.hidden_file.js`.
 
@@ -57,6 +61,31 @@ Layouts reside in a top-level layout directory within the source directory, whic
 Layouts, similar to templates, can have "frontmatter" in the form of an exported `data` object. This object can contain itself a `layout` property with the path to another layout for chaining of layouts. Note, the path in `layout` is taken relative to the layouts directory, not the directory the current layout is in. For each template, on rendering the data is a deep merge of its own local data, the data of all layouts, and the global data. Data closer to the template overwrites any further away. Note, layouts don't have a special `permalink` property because they aren't outputted.
 
 Note, a layout filename can actually be whatever you want, including with a "wrong" extension or no extension. As long as template that references it in the `layout` property provides the correct path, it's read in as JavaScript.
+
+
+
+## Template data
+
+<!-- todo: use template data, subset is global data -->
+<!-- todo: finish  -->
+
+A template can have frontmatter in form of an exported `data` object, whose properties are available in the `render` function. Each layout can do the same thing, because it's just a special template. But to be useful, the data available in the `render` function is not the one of the invidual template, but the merge of all the layouts that it's chained to. The merge function can be configured, but by default is a deep merge. Note, if you use a custom merge function, it should be capable of taking arbitrarily many arguments, otherwise it will work correctly only for templates whose layout chain consists of a single layout.
+
+<!-- todo: insert global data file  -->
+
+And to be even more useful, you can create global data files whose data is available in all templates.
+
+goose itself makes no restrictions on the type of data you can put in the `data` object or the default export in case of a global data file. However, since they are all merged, not all data types make much sense. For example, in deep merge two arrays get merged by concatenation, while in shallow merge not. But objects (including functions) never get merged with any primitive value (including arrays). Therefore for data that you want to merge, it's advisable to use objects.
+
+---
+
+Global data files are simple `.js` files that have a default export. The value of their default export is deep merged into a global data object. For each template, the global data object is then deep merged with the data of the template and all its layouts at rendering. This allows for global data that is available in every template and layout.
+
+Note, global data has the "lowest priority" in the data chain. This means, an export of any other value type than a (function returning an) object will probably be overwritten, because primitive values don't merge. Note, arrays do merge with each other, but arrays and objects won't. Therefore if you want your data to merge, you should use objects.
+
+Note, the first deep merge is that of any global data files themselves by the order the directory is walked using Deno's [std/fs/walk.ts](https://deno.land/std/fs/walk.ts). The order may not be intuitive, so make sure that the data of the global data files doesn't overwrite each other already.
+
+Only the default export of the global data file is used, and any other export is ignored. If the export is a function, it will be called and it's return value will be used instead. Note, the function can be async (unlike a template `render` function). The function is called without any arguments.
 
 
 

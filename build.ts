@@ -4,6 +4,8 @@
 
 // todo: implement incremental build
 
+// todo: allow for shallowMerge
+
 import { log } from "./logger.ts";
 import {
     exists,
@@ -15,8 +17,6 @@ import {
     join as pathJoin,
     extname as pathExtname,
     createHash,
-    shallowMerge,
-    deepMerge,
     walkChainIdCall,
     walkChainIdMerge
 } from "./deps.ts";
@@ -31,6 +31,7 @@ import {
 export async function build(config, flags) {
     log.info("Build started.");
     log.debug(`Build options: ${JSON.stringify(config)}`);
+    log.debug(`Build flags: ${JSON.stringify(flags)}`);
 
     const startTime = performance.now();
 
@@ -41,13 +42,15 @@ export async function build(config, flags) {
         throw new Error(`Source folder ${config.sourceDirname} doesn't exist.`);
     }
 
-    const targetFolderExists = await exists(config.targetDirname);
+    if (!flags.dryrun) {
+        const targetFolderExists = await exists(config.targetDirname);
 
-    // beware: in meantime user could create target folder, overwrites because no second check before writing
-    if (!config.incrementalBuild && targetFolderExists) {
-        throw new Error(`Target folder ${config.targetDirname} already exists.`);
-    } else if (config.incrementalBuild && !targetFolderExists) {
-        console.warn(`Target folder ${config.targetDirname} doesn't exist. Will do a full build instead.`);
+        // beware: in meantime user could create target folder, overwrites because no second check before writing
+        if (!config.incrementalBuild && targetFolderExists) {
+            throw new Error(`Target folder ${config.targetDirname} already exists.`);
+        } else if (config.incrementalBuild && !targetFolderExists) {
+            console.warn(`Target folder ${config.targetDirname} doesn't exist. Will do a full build instead.`);
+        }
     }
 
     // ------ load files ------
@@ -91,9 +94,7 @@ export async function build(config, flags) {
             else if (dir.split(pathSeparator).some(str => str.startsWith(config.ignoredDirname))) {
                 log.trace(`File is ignored because of directory name: ${item.path}`);
                 files.ignored.push(file);
-            }
-
-            else if (ext == ".js") {
+            } else if (ext == ".js") {
                 // because name ends on second extension
                 // note: pathExtname returns empty string if single "." is first character, i.e. a nameless file like ".css.js" is handled as asset
                 const secondExtension = pathExtname(name);
@@ -131,19 +132,50 @@ export async function build(config, flags) {
     }
 
     // ------ load global data ------
-    const globalData = [];
 
-    // todo: make robust, how does import function, what does do with complex values...
+    const globalDataArr = [];
+
+    // no restrictions of imported value (or return type of function), will just get merged away if not a normal object
+    // todo: make robust, what does do with complex values...
     for (const file of files.globaldata) {
         const relPath = "." + pathJoin(pathSeparator, file.sourcePath);
-        const o = await import(relPath);
-        globalData.push(...Object.values(o));
+
+        let data = undefined;
+        try {
+            data = await import(relPath);
+        } catch (e) {
+            throw new Error(`Global data file ${file.sourcePath} couldn't be imported. ${e.message}`);
+        }
+
+        const defaultExport = data.default;
+        if (defaultExport) {
+            if (typeof defaultExport == "function") {
+                let unwrapped = undefined;
+                try {
+                    unwrapped = await defaultExport();
+                } catch (e) {
+                    throw new Error(
+                        `Default export function of global data file ${file.sourcePath} threw an error. ${e.message}`
+                    );
+                }
+                globalDataArr.push(unwrapped);
+            } else {
+                globalDataArr.push(defaultExport);
+            }
+        } else {
+            console.warn(`Global data file ${file.sourcePath} doesn't have a default export. Will ignore.`);
+        }
     }
 
-    // ------ load layouts ------
-    // loads all layouts into memory, assumes there are not many
+    log.debug(`Unmerged global data: ${JSON.stringify(globalDataArr)}`);
 
-    // todo: make robust, don't save content in memory as object property, instead for each file compute everything and write out immediately
+    const globalData = config.mergeFunction({}, ...globalDataArr);
+
+    log.debug(`Merged global data: ${JSON.stringify(globalData)}`);
+
+    // ------ load layouts ------
+    // loads all layouts into memory, assumes there are not many and instead much more templates
+
     for (const file of files.layouts) {
         log.debug(`--- Process layout ${file.sourcePath} ---`);
         // todo: make robust, how does import function, what does do with complex values...
@@ -155,7 +187,6 @@ export async function build(config, flags) {
             throw new Error(`Layout ${file.sourcePath} couldn't be imported. ${e.message}`);
         }
 
-        // todo: validation, render returns string, data deep merges well with all kinds of data objects (string, bigint, regexp, ...)
         if (!layout.render) {
             throw new Error(`Layout ${file.sourcePath} doen't export a render function.`);
         }
@@ -164,19 +195,52 @@ export async function build(config, flags) {
         }
         file.render = layout.render;
 
-        // todo: validation, data can be anything...
+        // note: no validation on data, user has to deal with a useful/-less merge
         if (!layout.data) {
-            log.warn(`Layout ${file.sourcePath} doen't export a data object.`);
+            log.warn(`Layout ${file.sourcePath} doen't have a named export 'data'.`);
         }
-        if (typeof layout.data == "function") {
-            throw new Error(`Layout ${file.sourcePath} data object must not be a function.`);
-        }
-        // if data is non-object, empty object, or doesn't have layout property, is simply undefined
+        // if (typeof layout.data == "function") {
+        //     throw new Error(`Layout ${file.sourcePath} data object must not be a function.`);
+        // }
+
+        // todo: if layout.data is non-object, empty object, or doesn't have layout property, is simply undefined
         const { layout: layoutPathRelative, ...data } = layout.data;
-        // todo: validate layout: string, single path, no ../ anywhere, etc.
-        file.layoutPathRelative = layoutPathRelative;
+        
         file.data = data;
         log.debug(`Layout frontmatter: ${JSON.stringify(file.data)}`);
+
+        // validate layout path
+        if (layoutPathRelative) {
+            if (typeof layoutPathRelative != "string") {
+                throw new Error(`Layout path in template ${file.sourcePath} must be a string.`);
+            }
+            const layoutPathRelativeArr = layoutPathRelative.split(pathSeparator);
+            if (layoutPathRelativeArr.includes("..")) {
+                throw new Error(`Layout path ${layoutPathRelative} in template ${file.sourcePath} can't contain "..".`);
+            }
+        }
+        file.layoutPathRelative = layoutPathRelative;
+
+        // ---------- compute data properties ----------
+        // merge layout data up to global object now instead of with each template
+        // saves computations when multiple template reuse the same layout
+
+        const layoutData = walkChainIdMerge({
+            startNode: file,
+            nodeList: files.layouts,
+            linkName: "layoutPathRelative",
+            idName: "sourcePathRelativeToLayout",
+            mergeProperty: "data",
+            mergeFunction: config.mergeFunction
+        });
+
+        log.debug(`Merged data: ${JSON.stringify(layoutData)}`);
+
+        const layoutAndGlobalData = config.mergeFunction(globalData, layoutData);
+
+        log.debug(`Merged and global data: ${JSON.stringify(layoutAndGlobalData)}`);
+
+        file.dataMerged = layoutAndGlobalData;
     }
 
     // ------ process templates ------
@@ -184,7 +248,9 @@ export async function build(config, flags) {
     // process and write all in single pass
     for (const file of files.templates) {
         log.debug(`--- Process template ${file.sourcePath} ---`);
-        
+
+        // todo: make robust, don't save content in memory as object property, instead for each file compute everything and write out immediately
+
         // todo: improve processing flow, factor out step into own functions, only call if needs, e.g. transformations isn't undefined, etc.
 
         // ---------- load template ----------
@@ -207,14 +273,15 @@ export async function build(config, flags) {
         }
         file.render = template.render;
 
-        // todo: validation, data can be anything...
+        // note: no validation on data, user has to deal with a useful/-less merge
         if (!template.data) {
-            log.warn(`Template ${file.sourcePath} doen't export a data object.`);
+            log.warn(`Template ${file.sourcePath} doen't have a named export 'data'.`);
         }
-        if (typeof template.data == "function") {
-            throw new Error(`Template ${file.sourcePath} data object must not be a function.`);
-        }
-        // if data is non-object, empty object, or doesn't have layout property, is simply undefined
+        // if (typeof template.data == "function") {
+        //     throw new Error(`Template ${file.sourcePath} data object must not be a function.`);
+        // }
+
+        // todo: if template.data is non-object, empty object, or doesn't have layout property, is simply undefined
         const { layout: layoutPathRelative, permalink, ...data } = template.data;
 
         file.data = data;
@@ -233,14 +300,15 @@ export async function build(config, flags) {
         file.layoutPathRelative = layoutPathRelative;
 
         // validate permalink
-        // todo: permalink must have extension ?!?
+        // todo: permalink must have extension ?!? use pathParse ?? permalink may not contain ..,
+        // todo: use parsePath because makes platform independent, NO, will parse the string in that platform...
         if (permalink) {
             if (typeof permalink != "string") {
                 throw new Error(`Permalink in template ${file.sourcePath} must be a string.`);
             }
             const targetPathRelativeArr = permalink.split(pathSeparator);
             if (targetPathRelativeArr.includes("..")) {
-                throw new Error(`Permalink ${permalink} in template ${file.sourcePath} can't contain "..".`);
+                throw new Error(`Permalink ${permalink} in template ${file.sourcePath} can't contain ".." path segments.`);
             }
         }
         file.targetPathRelative = permalink || file.sourcePathRelativeWithoutJsExtension;
@@ -256,23 +324,22 @@ export async function build(config, flags) {
 
         // ---------- compute data properties ----------
 
-        // todo: merge in global data, allow for shallowMerge
-        // todo: build mergedData for templates in advance, doesn't need to compute same for every template...
-        const mergedData = walkChainIdMerge({
-            startNode: file,
-            nodeList: files.layouts,
-            linkName: "layoutPathRelative",
-            idName: "sourcePathRelativeToLayout",
-            mergeProperty: "data",
-            mergeFunction: deepMerge
-        });
-        log.debug(`Merged data: ${JSON.stringify(mergedData)}`);
+        // find layout of template
+        const layout = files.layouts.find(lay => {
+            return file.layoutPathRelative == lay.sourcePathRelativeToLayout;
+        })
+
+        // use precomputed merged data and merge with own
+        const templateData = config.mergeFunction(file.data, layout.dataMerged);
+
+        log.debug(`Merged template data: ${JSON.stringify(templateData)}`)
 
         // ---------- render ----------
 
         function tryRender(node, lastValue, data) {
             let str = undefined;
             try {
+                // await just incase render function is async
                 str = node.render(data, lastValue);
             } catch (e) {
                 throw new Error(`Template ${node.sourcePath} render function threw an error. ${e.message}`);
@@ -289,25 +356,26 @@ export async function build(config, flags) {
             linkName: "layoutPathRelative",
             idName: "sourcePathRelativeToLayout",
             callback: tryRender,
-            data: mergedData
+            data: templateData
         });
 
         log.debug(`Rendered content: ${JSON.stringify(renderedContent)}`);
 
         // ---------- transform ----------
 
-        // todo: validate transformations, functions take string and return string, etc. like for templates
+        // may be undefined if none were added, or may be empty if `.setTransformations` was called without a function argument
         const transformations = config.transformations[file.sourceExtension + file.targetExtension];
 
         // if transformations is empty, returns initial value renderedContent
         // if transformations itself is undefined, defaults to renderedContent
-        const transformedContent = transformations?.reduce((acc, transform) => {
-            const str = transform(acc);
-            if (typeof str != "string") {
-                throw new Error(`The transformation "${transform.name || "(anonymous)"}" must return a string.`);
-            }
-            return str;
-        }, renderedContent) ?? renderedContent;
+        const transformedContent =
+            transformations?.reduce((acc, transform) => {
+                const str = transform(acc);
+                if (typeof str != "string") {
+                    throw new Error(`The transformation "${transform.name || "(anonymous)"}" must return a string.`);
+                }
+                return str;
+            }, renderedContent) ?? renderedContent;
         log.debug(`Transformed content: ${JSON.stringify(transformedContent)}`);
 
         // ---------- write out ----------
@@ -338,15 +406,4 @@ async function writeFile(path, directory, content) {
     log.debug(`Writing: ${path}...`);
     await ensureDir(directory);
     await Deno.writeTextFile(path, content);
-}
-
-// todo: use inline because can customise error paths
-function validatePath(str) {
-    if (typeof str != "string") {
-        throw new Error(`Path must be a string.`);
-    }
-    const segments = str.split(pathSeparator);
-    if (segments.includes("..")) {
-        throw new Error(`Path ${permalink} can't contain "..".`);
-    }
 }
