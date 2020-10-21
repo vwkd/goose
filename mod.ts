@@ -80,7 +80,7 @@ Options:            Description:        Default:
         // configPath is undefined if -c isn't provided
         const flags = {
             dryrun: args.dryrun,
-            configPath: args.config?.trim(),
+            configPath: args.config,
             // verbose: args.verbose,
             // quiet: args.quiet
         };

@@ -21,6 +21,7 @@ export {
     extname,
     join,
     normalize,
+    format,
     parse,
     relative,
     resolve

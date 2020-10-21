@@ -36,8 +36,8 @@ You can pass the following command line flags
 
 - `-c`, `--config`: config path, defaults to `".goose.js"`
 - `-d`, `--dryrun`: dry run
-- `-b`, `--verbose`: log more
-- `-q`, `--quiet`: log less
+<!-- - `-b`, `--verbose`: log more
+- `-q`, `--quiet`: log less -->
 - `-h`, `--help`: show help
 - `-v`, `--version`: print version
 
@@ -47,36 +47,29 @@ Note, the config path is taken relative to the current working directory from wh
 
 ## Config
 
-<!-- todo: find better name for function and argument -->
-You can configure goose by creating a `.js` file that exports a `config` function that takes a `config` object as argument. If no config flag is provided, goose looks by default for a `.goose.js` file in the current working directory.
+You can configure goose by creating a `.js` file that has a function as default export that takes a `config` object as argument. If no config flag is provided, goose looks by default for a `.goose.js` file in the current working directory.
 
-The following properties can be set on the config object. Note, you can also read the properties at any time and they reflect the currently value.
+The following properties can be set on the `config` argument. Note, you can also read the properties at any time and they reflect the currently set value.
 
-- `.source`: source directory path relative to cwd, string, defaults to `src`
-- `.target`: target directory path relative to cwd, string, defaults to `dst`
+- `.sourcePath`: source directory path relative to cwd, string, defaults to `src`
+- `.targetPath`: target directory path relative to cwd, string, defaults to `dst`
 - `.ignoredFilename`: any file whose name starts with it is ignored, string, defaults to `_`
-- `.ignoredDirname`: any directory whose name starts with it is ignored, string, defaults to `_`
+- `.ignoredDirname`: any file which has an ancestor directory whose name starts with it is ignored, string, defaults to `_`
+- `.layoutDirname`: layout directory name see [layouts](), string, defaults to `_layout`
 - `.dataDirname`: data directory name see [global data](), string, defaults to `_data`
-- `.layoutDirname`: data directory name see [layouts](), string, defaults to `_layout`
-- `.mergeFunction`: merge function for template data, function, defaults to [`deepMerge`]()
-- `.incrementalBuild`: incremental build, boolean, defaults to `false`
+- `.mergeFunction`: merge function for template data, function, defaults to [`deepMergeArr`]()
+<!-- - `.incrementalBuild`: incremental build, boolean, defaults to `false` -->
 
-Note, `dataDirname` and `layoutDirname` must reside in the top-level of the source directory, therefore only the name and not the path needs to be specified.
+Note, the layout and data directory must reside in the top-level of the source directory, therefore `layoutDirname` and `dataDirname` specify only the name and not the path. Note, `ignoredDirname` doesn't apply to the layout and data directory name, such that you may use `ignoredDirname` in `dataDirname` and `layoutDirname`. However, inside the layout and data directory the `.ignoredFilename` and `.ignoredDirectory` apply as normal.
 
-Note, `ignoredDirname` is evaluated later than `dataDirname` and `layoutDirname`, such that these can use `ignoredDirname` in their name. However, `ignoredFilename` and `ignoredDirname` still applies inside them just like anywhere else.
+The following methods can be called on the `config` argument.
 
-The following methods can be called on the config object.
-
-- `.getTransformations(sourceExt, targetExt)`: read transformations for templates with given source and target extensions, returns array
+- `.getTransformations(sourceExt, targetExt)`: read all transformations for templates with given source and target extensions, returns array or `undefined` if no transformations were set yet
 - `.setTransformations(sourceExt, targetExt, func1, ..., funcN)`: sets transformations for templates with given source and target extensions, defaults to none
 
-<!-- todo: allow for wildcards, are executed after more specific transformations, wildcard in output is executed before wildcard in input ?? better allow to configure...
-.md .html e.g. compile
-.md *     e.g. 
-* .html   e.g. minify
- -->
+Note, the extensions must be strings with a leading dot, e.g. `".html"`, otherwise the transformations will be ignored as goose won't find them later.
 
-Note, calling `.setTransformations` multiple times just adds to the transformations without overwriting any previous. Transformations for a given pair of extensions are executed in the order they were added.
+Note, calling `.setTransformations` multiple times just adds more transformations without overwriting any previous. Transformations for a given pair of extensions are executed in the order they were added.
 
 
 

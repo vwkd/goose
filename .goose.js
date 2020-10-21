@@ -1,3 +1,4 @@
-export function config(configObject) {
-    configObject.sourceDirname = "src";
+export default function (config) {
+    config.source = "examples/src/";
+    config.target = "examples/dst/";
 }

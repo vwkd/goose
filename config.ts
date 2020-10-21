@@ -1,64 +1,72 @@
-import { join as pathJoin, sep as pathSeparator, parse as pathParse, deepMergeArr } from "./deps.ts";
-import { log } from "./logger.ts"
+import { join as pathJoin, sep as pathSeparator, parse as pathParse, format as pathFormat, deepMergeArr } from "./deps.ts";
+import { log } from "./logger.ts";
 
 // todo: add module name at beginning of error & log statements, because bubble up
-
 // todo: export typescript type
 
 export async function loadConfig(flags) {
     log.info("Load config started.");
 
-    log.debug(`Config path: ${flags.configPath}`)
+    log.debug(`Config path: ${flags.configPath}`);
 
     const defaultConfigPath = ".goose.js";
 
     // contains defaults, get overwritten when properly set
     const defaultConfig = {
-        sourceDirname: "src",
-        targetDirname: "dst",
+        source: "src",
+        target: "dst",
         ignoredFilename: "_",
         ignoredDirname: "_",
-        dataDirname: "_data",
         layoutDirname: "_layout",
+        dataDirname: "_data",
         mergeFunction: deepMergeArr,
         transformations: {
             ".md.html": [],
             ".css.css": []
-        },
-        incrementalBuild: false,
+        }
+        // incrementalBuild: false
     };
-
-    // docs: ignores any arguments that aren't defined
-    // docs: can't directly manipulate config...
-    // docs: source/target are directory names in cwd, only names not path
-    // docs: data/layout are directory names in source, only names not path
-    // docs: ignoredFilename/ignoredDirname are file/directory names in source, only names not path
-    // docs: tranformation exts must start with ".", otherwise won't match later
-    // docs: getTransformations returns array or undefined if not found
-    // docs: incremental build
 
     // freeze such that user can't add properties by accident that then get silently ignored
     const configArgument = Object.freeze({
-        get sourceDirname() {
-            return defaultConfig.sourceDirname;
+        get source() {
+            return defaultConfig.source;
         },
-        set sourceDirname(val) {
+        set source(val) {
             if (typeof val != "string") {
-                throw new Error(`The sourceDirname must be a string.`);
+                throw new Error(`The source directory must be a string.`);
+            }
+            if (val.trim() == "") {
+                throw new Error(`The source directory must be a non-empty non-whitespace-only string.`);
             }
             const path = pathParse(val);
-            defaultConfig.sourceDirname = path.base;
+            if (path.dir.split(pathSeparator).includes("..")) {
+                throw new Error(
+                    `The source directory ${val} must not contain ".." path segments.`
+                );
+            }
+            // disassemble and reassemble to make sure path is valid
+            defaultConfig.source = pathFormat({ dir: path.dir, base: path.base });
         },
-
-        get targetDirname() {
-            return defaultConfig.targetDirname;
+        
+        get target() {
+            return defaultConfig.target;
         },
-        set targetDirname(val) {
+        set target(val) {
             if (typeof val != "string") {
-                throw new Error(`The targetDirname must be a string.`);
+                throw new Error(`The target directory must be a string.`);
+            }
+            if (val.trim() == "") {
+                throw new Error(`The target directory must be a non-empty non-whitespace-only string.`);
             }
             const path = pathParse(val);
-            defaultConfig.targetDirname = path.base;
+            if (path.dir.split(pathSeparator).includes("..")) {
+                throw new Error(
+                    `The target directory ${val} must not contain ".." path segments.`
+                );
+            }
+            // disassemble and reassemble to make sure path is valid
+            defaultConfig.target = pathFormat({ dir: path.dir, base: path.base });
         },
 
         get ignoredFilename() {
@@ -68,7 +76,11 @@ export async function loadConfig(flags) {
             if (typeof val != "string") {
                 throw new Error(`The ignoredFilename must be a string.`);
             }
+            if (val.trim() == "") {
+                throw new Error(`The ignoredFilename must be a non-empty non-whitespace-only string.`);
+            }
             const path = pathParse(val);
+            // only takes base to discard any path segments
             defaultConfig.ignoredFilename = path.base;
         },
 
@@ -79,7 +91,11 @@ export async function loadConfig(flags) {
             if (typeof val != "string") {
                 throw new Error(`The ignoredDirname must be a string.`);
             }
+            if (val.trim() == "") {
+                throw new Error(`The ignoredDirname must be a non-empty non-whitespace-only string.`);
+            }
             const path = pathParse(val);
+            // only takes base to discard any path segments
             defaultConfig.ignoredDirname = path.base;
         },
 
@@ -90,7 +106,11 @@ export async function loadConfig(flags) {
             if (typeof val != "string") {
                 throw new Error(`The dataDirname must be a string.`);
             }
+            if (val.trim() == "") {
+                throw new Error(`The dataDirname must be a non-empty non-whitespace-only string.`);
+            }
             const path = pathParse(val);
+            // only takes base to discard any path segments
             defaultConfig.dataDirname = path.base;
         },
 
@@ -101,7 +121,11 @@ export async function loadConfig(flags) {
             if (typeof val != "string") {
                 throw new Error(`The layoutDirname must be a string.`);
             }
+            if (val.trim() == "") {
+                throw new Error(`The layoutDirname must be a non-empty non-whitespace-only string.`);
+            }
             const path = pathParse(val);
+            // only takes base to discard any path segments
             defaultConfig.layoutDirname = path.base;
         },
 
@@ -116,7 +140,7 @@ export async function loadConfig(flags) {
             defaultConfig.mergeFunction = val;
         },
 
-        get incrementalBuild() {
+        /*         get incrementalBuild() {
             return defaultConfig.incrementalBuild;
         },
         set incrementalBuild(val) {
@@ -124,7 +148,7 @@ export async function loadConfig(flags) {
                 throw new Error(`The incrementalBuild must be a boolean.`);
             }
             defaultConfig.incrementalBuild = val;
-        },
+        }, */
 
         getTransformations(sourceExt, targetExt) {
             // returns array, or undefined if not found
@@ -139,6 +163,7 @@ export async function loadConfig(flags) {
 
             // note: no validation if actually extensions, just won't find any matches later
             // just startWith check because of common error
+            // todo: what if just provides "."?
             if (typeof sourceExt != "string" || typeof targetExt != "string") {
                 throw new Error(`The extension arguments of "setTransformations" must be strings.`);
             } else if (!sourceExt.startsWith(".") || !targetExt.startsWith(".")) {
@@ -152,30 +177,40 @@ export async function loadConfig(flags) {
                 }
             });
 
-            const entry = defaultConfig.transformations[sourceExt + targetExt];
+            // ignore if funcs is empty array
+            if (funcs.length > 0) {
+                const entry = defaultConfig.transformations[sourceExt + targetExt];
 
-            // if entry exists (because would be array, is never falsy)
-            if (entry) {
-                entry.concat(funcs);
+                if (entry) {
+                    entry.concat(funcs);
+                } else {
+                    defaultConfig.transformations[sourceExt + targetExt] = funcs;
+                }
             }
-
-            // also creates entry if only empty array
-            else {
-                defaultConfig.transformations[sourceExt + targetExt] = funcs;
-            }
-        },
+        }
     });
 
     let configFile = undefined;
 
     // user path
     if (flags.configPath) {
+        // validate
+        // is already a string from argument parser
+        if (flags.configPath.trim() == "") {
+            throw new Error(`The config path must be a non-empty non-whitespace-only string.`);
+        }
+        const path = pathParse(flags.configPath);
+        if (path.dir.split(pathSeparator).includes("..")) {
+            throw new Error(
+                `The config path ${flags.configPath} must not contain ".." path segments.`
+            );
+        }
         const relPath = "." + pathJoin(pathSeparator, flags.configPath);
         try {
-            log.trace(`Importing user config ${relPath}...`)
+            log.trace(`Importing user config ${relPath}...`);
             configFile = await import(relPath);
         } catch (e) {
-            throw new Error(`Couldn't read config file ${flags.configPath}. ${e.message}`);
+            throw new Error(`Couldn't import config file ${flags.configPath}. ${e.message}`);
         }
     }
 
@@ -183,31 +218,31 @@ export async function loadConfig(flags) {
     else {
         const relPath = "." + pathJoin(pathSeparator, defaultConfigPath);
         try {
-            log.trace(`Importing default config ${relPath}...`)
+            log.trace(`Importing default config ${relPath}...`);
             configFile = await import(relPath);
         } catch (e) {
             // don't break if default doesn't exist
             if (e instanceof Deno.errors.NotFound) {
                 return defaultConfig;
             }
-            throw new Error(`Couldn't read config file ${defaultConfigPath}. ${e.message}`);
+            throw new Error(`Couldn't import config file ${defaultConfigPath}. ${e.message}`);
         }
     }
 
+    const configFunc = configFile.default;
     // validation
-    if (!configFile.config) {
-        throw new Error(`Config ${flags.configPath} doen't export a config function.`);
+    if (!configFunc) {
+        throw new Error(`Config ${flags.configPath || defaultConfigPath} doesn't have a default export.`);
     }
-    if (typeof configFile.config != "function") {
-        throw new Error(`Config ${flags.configPath} config function must be a function.`);
+    if (typeof configFunc != "function") {
+        throw new Error(`Config ${flags.configPath || defaultConfigPath} default export must be a function.`);
     }
-    const configFunc = configFile.config;
 
     // execute
     try {
         configFunc(configArgument);
     } catch (e) {
-        throw new Error(`Config ${flags.configPath} config function threw an error. ${e.message}`);
+        throw new Error(`Config ${flags.configPath || defaultConfigPath} function threw an error. ${e.message}`);
     }
 
     log.info("Load config ended.");
@@ -218,9 +253,14 @@ export async function loadConfig(flags) {
 }
 
 export function validateConfig(config) {
-    if (config.sourceDirname == config.targetDirname) {
+    if (config.source == config.target) {
         throw new Error(
-            `The sourceDirname ${config.sourceDirname} must be different from the targetDirname ${config.targetDirname}.`
+            `The source directory ${config.source} must be different from the target directory ${config.target}.`
+        );
+    }
+    if (config.layoutDirname == config.dataDirname) {
+        throw new Error(
+            `The layout directory ${config.layoutDirname} must be different from the data directory ${config.dataDirname}.`
         );
     }
 }
