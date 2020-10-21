@@ -64,12 +64,14 @@ Note, the layout and data directory must reside in the top-level of the source d
 
 The following methods can be called on the `config` argument.
 
-- `.getTransformations(sourceExt, targetExt)`: read all transformations for templates with given source and target extensions, returns array or `undefined` if no transformations were set yet
+- `.getTransformations(sourceExt, targetExt)`: read all transformations for templates with given source and target extensions, returns array or `undefined` if no transformations have been set yet
 - `.setTransformations(sourceExt, targetExt, func1, ..., funcN)`: sets transformations for templates with given source and target extensions, defaults to none
+- `.getTargetPathTransformation(sourceExt, targetExt)`: read the target path tranformation for templates with given source and target extensions, returns the function or `undefined` if no transformation has been set yet
+- `.setTargetPathTransformation(sourceExt, targetExt, func)`: set the target path tranformation for templates with given source and target extensions, defaults to none
 
 Note, the extensions must be strings with a leading dot, e.g. `".html"`, otherwise the transformations will be ignored as goose won't find them later.
 
-Note, calling `.setTransformations` multiple times just adds more transformations without overwriting any previous. Transformations for a given pair of extensions are executed in the order they were added.
+Note, calling `.setTransformations()` multiple times just adds more transformations without overwriting any previous. Transformations for a given pair of extensions are executed in the order they were added. Note, for `.setTargetPathTransformation()` only one transform can be set for a given pair of extensions and calling it multiple times overwrites the previously set transform.
 
 
 

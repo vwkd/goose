@@ -1,4 +1,10 @@
-import { join as pathJoin, sep as pathSeparator, parse as pathParse, format as pathFormat, deepMergeArr } from "./deps.ts";
+import {
+    pathJoin,
+    pathSeparator,
+    pathParse,
+    pathFormat,
+    deepMergeArr
+} from "./deps.ts";
 import { log } from "./logger.ts";
 
 // todo: add module name at beginning of error & log statements, because bubble up
@@ -20,10 +26,8 @@ export async function loadConfig(flags) {
         layoutDirname: "_layout",
         dataDirname: "_data",
         mergeFunction: deepMergeArr,
-        transformations: {
-            ".md.html": [],
-            ".css.css": []
-        }
+        transformations: {},
+        targetPathTransformation: {},
         // incrementalBuild: false
     };
 
@@ -41,14 +45,12 @@ export async function loadConfig(flags) {
             }
             const path = pathParse(val);
             if (path.dir.split(pathSeparator).includes("..")) {
-                throw new Error(
-                    `The source directory ${val} must not contain ".." path segments.`
-                );
+                throw new Error(`The source directory ${val} must not contain ".." path segments.`);
             }
             // disassemble and reassemble to make sure path is valid
             defaultConfig.source = pathFormat({ dir: path.dir, base: path.base });
         },
-        
+
         get target() {
             return defaultConfig.target;
         },
@@ -61,9 +63,7 @@ export async function loadConfig(flags) {
             }
             const path = pathParse(val);
             if (path.dir.split(pathSeparator).includes("..")) {
-                throw new Error(
-                    `The target directory ${val} must not contain ".." path segments.`
-                );
+                throw new Error(`The target directory ${val} must not contain ".." path segments.`);
             }
             // disassemble and reassemble to make sure path is valid
             defaultConfig.target = pathFormat({ dir: path.dir, base: path.base });
@@ -187,6 +187,35 @@ export async function loadConfig(flags) {
                     defaultConfig.transformations[sourceExt + targetExt] = funcs;
                 }
             }
+        },
+
+        getTargetPathTransformation(sourceExt, targetExt) {
+            // returns function or undefined if not found
+            if (typeof sourceExt != "string" || typeof targetExt != "string") {
+                throw new Error(`The extension arguments of "getTargetPathTransformation" must be strings.`);
+            }
+            return defaultConfig.targetPathTransformation[sourceExt + targetExt];
+        },
+
+        setTargetPathTransformation(sourceExt, targetExt, func) {
+            // funcs is empty array if not enough arguments are provided
+
+            // note: no validation if actually extensions, just won't find any matches later
+            // just startWith check because of common error
+            // todo: what if just provides "."?
+            if (typeof sourceExt != "string" || typeof targetExt != "string") {
+                throw new Error(`The extension arguments of "setTargetPathTransformation" must be strings.`);
+            } else if (!sourceExt.startsWith(".") || !targetExt.startsWith(".")) {
+                throw new Error(`The extension arguments of "setTargetPathTransformation" must start with a ".".`);
+            }
+
+            // note: can't validate more without execution
+            if (typeof func != "function") {
+                throw new Error(`The function argument of "setTransformations" must be a function.`);
+            }
+
+            // overwrite any existing targetPathTransformation
+            defaultConfig.targetPathTransformation[sourceExt + targetExt] = func;
         }
     });
 
@@ -201,9 +230,7 @@ export async function loadConfig(flags) {
         }
         const path = pathParse(flags.configPath);
         if (path.dir.split(pathSeparator).includes("..")) {
-            throw new Error(
-                `The config path ${flags.configPath} must not contain ".." path segments.`
-            );
+            throw new Error(`The config path ${flags.configPath} must not contain ".." path segments.`);
         }
         const relPath = "." + pathJoin(pathSeparator, flags.configPath);
         try {

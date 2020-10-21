@@ -52,6 +52,11 @@ If things made sense until know, we can finally explain arguments of the `render
 
 <!-- todo: check if there are editor extensions to format languages inside template strings -->
 
+The target path of a template is by default the same relative path in the target directory as in the source directory. For an individaul template, this can be changed by setting the `.targetPath` in the `data` function of the template, or globally for all templates of a given source and target type using [Target path transformations](). 
+
+Note, goose processes templates in a loop and writes out as soon as it's done with one before proceeding to the next. Therefore it can't check if the same targetPath is set for multiple templates. Therefore make sure to not set the same target path for multiple templates, otherwise the previous one is overwritten each time.
+
+
 
 ## Layouts
 
@@ -113,6 +118,15 @@ For example, if you want to convert Markdown to HTML and minify it, then you cou
 ```
 
 for some markdown parser and minifier.
+
+### Target path transformations
+
+A special type of transformations are transformations of the target path of a template. 
+
+A Target path transformation is given the current targetPath as input, and expected to return another string as output.
+They take the current targetPath relative to the target directory as input and return a new targetPath as output. 
+
+For example, goose doesn't handle `.html` files any different than other files, but a HTTP server by default looks for an `index.html` in the directory it's given and not for an `[name].html` in the parent directory. Therefore you'd most likely want to rename any `.html` file that isn't already named `index.html` to `index.html` and put it in a subdirectory of it's original name, e.g. `about.html` to `about/index.html`. See the examples for how this can be done with target path transformations
 
 
 

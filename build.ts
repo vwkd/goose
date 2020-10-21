@@ -1,5 +1,6 @@
 // todo: add module name at beginning of error & log statements, because bubble up
 // todo: add helper notice to user at beginning of error statements to notice where it broke
+// todo: respect verbose and quiet options
 
 import { log } from "./logger.ts";
 import {
@@ -7,24 +8,16 @@ import {
     ensureDir,
     walk,
     copy,
-    parse as pathParse,
-    format as pathFormat,
-    sep as pathSeparator,
-    join as pathJoin,
-    extname as pathExtname,
-    relative as pathRelative,
-    createHash,
+    pathParse,
+    pathFormat,
+    pathSeparator,
+    pathJoin,
+    pathExtname,
+    pathRelative,
     walkChainIdCall,
     walkChainIdMerge
 } from "./deps.ts";
 
-// todo: respect verbose and quiet options
-
-/**
- * Heart of application.
- * Builds files from options.
- * @param config options to build
- */
 export async function build(config, flags) {
     log.info("Build started.");
     log.debug(`Build options: ${JSON.stringify(config)}`);
@@ -59,26 +52,157 @@ export async function build(config, flags) {
 
     try {
         for await (const item of walk(config.source, { includeDirs: false })) {
-            
-            const _sourcePath = item.path;
-            const { dir: _dir, ext: _ext, name: _name, base: _base } = pathParse(_sourcePath);
-            const _sourceDirectory = _dir;
 
-            const _sourcePathRelative = pathRelative(config.source, _sourcePath);
-            const _sourceDirectoryRelative = pathRelative(config.source, _sourceDirectory);
-            
-            const file = {
-                sourcePath: _sourcePath,
-                sourcePathRelative: _sourcePathRelative,
-                sourceDirectory: _sourceDirectory,
-                sourceDirectoryRelative: _sourceDirectoryRelative,
-                sourceExtension: _ext,
-                sourceName: _name,
-                sourceBase: _base
-            };
+            // file path object, can change any property, all others reflect the new value
+            // beware: must initialise by setting sourcePath(Relative) and targetPath(Relative) before reading anything!
+            // could have also made instance of a class whose constructor had taken (source, target, sourcePath(Relative), targetPath(Relative)) as arguments
+            const file = (function (source, target) {
+                let dir_s = undefined;
+                let name_s = undefined;
+                let ext_s = undefined;
 
-            const [sourcePathRelativeFirst, ...sourcePathRelativeRestArr] = file.sourcePathRelative.split(pathSeparator);
-            const [sourceDirectoryRelativeFirst, ...sourceDirectoryRelativeRestArr] = file.sourceDirectoryRelative.split(pathSeparator);
+                let dir_t = undefined;
+                let name_t = undefined;
+                let ext_t = undefined;
+
+                return {
+                    get sourcePath() {
+                        return pathJoin(dir_s, name_s + ext_s);
+                    },
+
+                    set sourcePath(val) {
+                        const { dir: _dir, name: _name, ext: _ext } = pathParse(val);
+                        dir_s = _dir;
+                        name_s = _name;
+                        ext_s = _ext;
+                    },
+
+                    get sourcePathRelative() {
+                        return pathRelative(source, this.sourcePath);
+                    },
+
+                    set sourcePathRelative(val) {
+                        this.sourcePath = pathJoin(source, val);
+                    },
+
+                    get sourceDirectory() {
+                        return dir_s;
+                    },
+
+                    set sourceDirectory(val) {
+                        dir_s = val;
+                    },
+
+                    get sourceDirectoryRelative() {
+                        return pathRelative(source, this.sourceDirectory);
+                    },
+
+                    set sourceDirectoryRelative(val) {
+                        this.sourceDirectory = pathJoin(source, val);
+                    },
+
+                    get sourceBase() {
+                        return name_s + ext_s;
+                    },
+
+                    set sourceBase(val) {
+                        const { name: _name, ext: _ext } = pathParse(val);
+                        name_s = _name;
+                        ext_s = _ext;
+                    },
+
+                    get sourceName() {
+                        return name_s;
+                    },
+
+                    set sourceName(val) {
+                        name_s = val;
+                    },
+
+                    get sourceExtension() {
+                        return ext_s;
+                    },
+
+                    set sourceExtension(val) {
+                        ext_s = val;
+                    },
+
+                    // ------ target path -------
+
+                    get targetPath() {
+                        return pathJoin(dir_t, name_t + ext_t);
+                    },
+
+                    set targetPath(val) {
+                        const { dir: _dir, name: _name, ext: _ext } = pathParse(val);
+                        dir_t = _dir;
+                        name_t = _name;
+                        ext_t = _ext;
+                    },
+
+                    get targetPathRelative() {
+                        return pathRelative(target, this.targetPath);
+                    },
+
+                    set targetPathRelative(val) {
+                        this.targetPath = pathJoin(target, val);
+                    },
+
+                    get targetDirectory() {
+                        return dir_t;
+                    },
+
+                    set targetDirectory(val) {
+                        dir_t = val;
+                    },
+
+                    get targetDirectoryRelative() {
+                        return pathRelative(target, this.targetDirectory);
+                    },
+
+                    set targetDirectoryRelative(val) {
+                        this.targetDirectory = pathJoin(target, val);
+                    },
+
+                    get targetBase() {
+                        return name_t + ext_t;
+                    },
+
+                    set targetBase(val) {
+                        const { name: _name, ext: _ext } = pathParse(val);
+                        name_t = _name;
+                        ext_t = _ext;
+                    },
+
+                    get targetName() {
+                        return name_t;
+                    },
+
+                    set targetName(val) {
+                        name_t = val;
+                    },
+
+                    get targetExtension() {
+                        return ext_t;
+                    },
+
+                    set targetExtension(val) {
+                        ext_t = val;
+                    }
+                };
+            })(config.source, config.target);
+
+            // initialise file, default targetPath to same relative path as sourcePath
+            file.sourcePath = item.path;
+            file.targetPathRelative = file.sourcePathRelative;
+
+            const [sourcePathRelativeFirst, ...sourcePathRelativeRestArr] = file.sourcePathRelative.split(
+                pathSeparator
+            );
+            const [
+                sourceDirectoryRelativeFirst,
+                ...sourceDirectoryRelativeRestArr
+            ] = file.sourceDirectoryRelative.split(pathSeparator);
 
             // ignored filename
             if (file.sourceName.startsWith(config.ignoredFilename)) {
@@ -93,7 +217,6 @@ export async function build(config, flags) {
                     files.ignored.push(file);
                 } else {
                     log.trace(`File is layout because of directory: ${item.path}`);
-                    // const [_c, ...sourcePathRelativeRestArr] = sourcePathRelativeArr;
                     file.sourcePathRelativeToLayout = sourcePathRelativeRestArr.join(pathSeparator);
                     files.layouts.push(file);
                 }
@@ -124,15 +247,14 @@ export async function build(config, flags) {
                 const secondExtension = pathExtname(file.sourceName);
                 if (secondExtension) {
                     log.trace(`File is template because of double "${secondExtension}.js" extension: ${item.path}`);
-                    // outputted, but compute targetPath later when knows permalink from local properties
-                    file.sourceExtension = secondExtension;
-                    file.sourcePathRelativeWithoutJsExtension = pathJoin(file.sourceDirectoryRelative, file.sourceName);
+                    // note: targetPath may change later due to template data or targetPathTransformation
+                    file.sourceSecondExtension = secondExtension;
+                    file.sourcePathRelativeSecondExtension = pathJoin(file.sourceDirectoryRelative, file.sourceName);
+                    // strips trailing .js extension from targetPath
+                    file.targetPathRelative = file.sourcePathRelativeSecondExtension;
                     files.templates.push(file);
                 } else {
                     log.trace(`File is asset because of single ".js" extension: ${item.path}`);
-                    // outputted, compute targetPath now because won't change later
-                    file.targetPath = pathJoin(config.target, file.sourcePathRelative);
-                    file.targetDirectory = pathJoin(config.target, file.sourceDirectoryRelative);
                     files.assets.push(file);
                 }
             }
@@ -140,9 +262,6 @@ export async function build(config, flags) {
             // everything else
             else {
                 log.trace(`File is asset because everything else: ${item.path}`);
-                // outputted, compute targetPath now because won't change later
-                file.targetPath = pathJoin(config.target, file.sourcePathRelative);
-                file.targetDirectory = pathJoin(config.target, file.sourceDirectoryRelative);
                 files.assets.push(file);
             }
         }
@@ -226,8 +345,7 @@ export async function build(config, flags) {
 
         if (!layout.data) {
             log.warn(`Layout ${file.sourcePath} doen't export a data function.`);
-        }
-        else if (typeof layout.data != "function") {
+        } else if (typeof layout.data != "function") {
             throw new Error(`Layout ${file.sourcePath} data function must be a function.`);
         }
 
@@ -239,6 +357,9 @@ export async function build(config, flags) {
             set layoutPath(val) {
                 if (typeof val != "string") {
                     throw new Error(`The layoutPath in template ${file.sourcePath} must be a string.`);
+                }
+                if (val.trim() == "") {
+                    throw new Error(`The layoutPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`);
                 }
                 const path = pathParse(val);
                 if (path.dir.split(pathSeparator).includes("..")) {
@@ -278,7 +399,7 @@ export async function build(config, flags) {
 
         log.debug(`Merged data: ${JSON.stringify(layoutData)}`);
 
-        // don't merge local data if undefined
+        // don't use local data if undefined
         const layoutAndGlobalData = layoutData ? config.mergeFunction(globalData, layoutData) : globalData;
 
         log.debug(`Merged and global data: ${JSON.stringify(layoutAndGlobalData)}`);
@@ -287,6 +408,8 @@ export async function build(config, flags) {
     }
 
     // ------ process templates ------
+
+    // beware: since writes out templates before proceeding to next, can't check if same targetPath is set on multiple templates, will overwrite instead
 
     // process and write all in single pass
     for (const file of files.templates) {
@@ -322,9 +445,6 @@ export async function build(config, flags) {
             throw new Error(`Template ${file.sourcePath} data function must be a function.`);
         }
 
-        // gets overwritten by dataArgument if sets "targetPath"
-        file.targetPathRelative = file.sourcePathRelativeWithoutJsExtension;
-
         const dataArgument = Object.freeze({
             get targetPath() {
                 return file.targetPathRelative;
@@ -332,6 +452,9 @@ export async function build(config, flags) {
             set targetPath(val) {
                 if (typeof val != "string") {
                     throw new Error(`The targetPath in template ${file.sourcePath} must be a string.`);
+                }
+                if (val.trim() == "") {
+                    throw new Error(`The targetPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`);
                 }
                 const path = pathParse(val);
                 if (path.dir.split(pathSeparator).includes("..")) {
@@ -349,6 +472,9 @@ export async function build(config, flags) {
             set layoutPath(val) {
                 if (typeof val != "string") {
                     throw new Error(`The layoutPath in template ${file.sourcePath} must be a string.`);
+                }
+                if (val.trim() == "") {
+                    throw new Error(`The layoutPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`);
                 }
                 const path = pathParse(val);
                 if (path.dir.split(pathSeparator).includes("..")) {
@@ -370,16 +496,6 @@ export async function build(config, flags) {
         }
         log.debug(`Template data: ${JSON.stringify(file.data)}`);
 
-        // todo: check for duplicate targetPaths, can't have two files with identical targetPaths
-        file.targetPath = pathJoin(config.target, file.targetPathRelative);
-        const { dir, ext, name, base } = pathParse(file.targetPathRelative);
-        file.targetDirectoryRelative = dir;
-        file.targetDirectory = pathJoin(config.target, file.targetDirectoryRelative);
-        // may be empty if used permalink which didn't have extension
-        file.targetExtension = ext;
-        file.targetName = name;
-        file.targetBase = base;
-
         log.debug(`File: ${JSON.stringify(file)}`);
 
         // ---------- compute data properties ----------
@@ -398,19 +514,18 @@ export async function build(config, flags) {
 
             if (layout) {
                 // global data was merged with layout data already
-                // don't merge local data if undefined
+                // don't use local data if undefined
                 templateData = file.data ? config.mergeFunction(layout.dataMerged, file.data) : layout.dataMerged;
-
             } else {
                 // console.warn(`Couldn't find layout ${file.layoutPathRelative} for template ${file.sourcePath}. Won't use its data it.`)
-                // don't merge local data if undefined
+                // don't use local data if undefined
                 templateData = file.data ? config.mergeFunction(layout.dataMerged, file.data) : layout.dataMerged;
             }
         }
 
         // has no layout, just merge in global data
         else {
-            // don't merge local data if undefined
+            // don't use local data if undefined
             templateData = file.data ? config.mergeFunction(globalData, file.data) : globalData;
         }
 
@@ -448,11 +563,39 @@ export async function build(config, flags) {
 
         // ---------- transform ----------
 
-        // may be undefined if none were added, or may be empty if `.setTransformations` was called without a function argument
-        const transformations = config.transformations[file.sourceExtension + file.targetExtension];
+        // may be undefined if none was added
+        // targetExtension may be empty if user provided targetPath in template data didn't include extension
+        // todo: what to do if file.targetExtension is empty?
+        const targetPathTransform = config.targetPathTransformation[file.sourceSecondExtension + file.targetExtension];
 
-        // if transformations is empty, returns initial value renderedContent
-        // if transformations itself is undefined, defaults to renderedContent
+        if (targetPathTransform) {
+            const targetPathRelativeTransformed = targetPathTransform(file.targetPathRelative);
+            if (typeof targetPathRelativeTransformed != "string") {
+                throw new Error(
+                    `The targetPath returned by targetPathTransform for ${file.sourceSecondExtension} -> ${file.targetExtension} must be a string.`
+                );
+            }
+            if (targetPathRelativeTransformed.trim() == "") {
+                throw new Error(
+                    `The targetPath returned by targetPathTransform for ${file.sourceSecondExtension} -> ${file.targetExtension} must be a non-empty non-whitespace-only string.`
+                );
+            }
+            const path = pathParse(targetPathRelativeTransformed);
+            if (path.dir.split(pathSeparator).includes("..")) {
+                throw new Error(
+                    `The targetPath returned by targetPathTransform for ${file.sourceSecondExtension} -> ${file.targetExtension} must not contain ".." path segments.`
+                );
+            }
+
+            file.targetPathRelative = targetPathRelativeTransformed;
+        }
+
+        log.debug(`Final file: ${JSON.stringify(file)}`);
+
+        // may be undefined if none were added
+        const transformations = config.transformations[file.sourceSecondExtension + file.targetExtension];
+
+        // if undefined, defaults to renderedContent
         const transformedContent =
             transformations?.reduce((acc, transform) => {
                 const str = transform(acc);

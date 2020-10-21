@@ -15,16 +15,16 @@ export { config as dotenv } from "https://deno.land/x/dotenv@v0.5.0/mod.ts";
 export { walk, exists, ensureDir, copy } from "https://deno.land/std@0.74.0/fs/mod.ts";
 
 export {
-    basename,
-    sep,
-    dirname,
-    extname,
-    join,
-    normalize,
-    format,
-    parse,
-    relative,
-    resolve
+    basename as pathBasename,
+    sep as pathSeparator,
+    dirname as pathDirname,
+    extname as pathExtname,
+    join as pathJoin,
+    normalize as pathNormalize,
+    format as pathFormat,
+    parse as pathParse,
+    relative as pathRelative,
+    resolve as pathResolve
 } from "https://deno.land/std@0.74.0/path/mod.ts";
 
 export { createHash } from "https://deno.land/std@0.74.0/hash/mod.ts";
