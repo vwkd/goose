@@ -26,8 +26,6 @@ export {
     resolve as pathResolve
 } from "https://deno.land/std@0.74.0/path/mod.ts";
 
-// export { createHash } from "https://deno.land/std@0.74.0/hash/mod.ts";
-
 // todo: pin version
 export { deepMerge, deepMergeArr } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/deep_merge.ts";
 export { shallowMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/shallow_merge.ts";
@@ -42,7 +40,3 @@ export {
     walkTreeLeafCall,
     walkTreeCompare
 } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_tree.ts";
-
-// export { v4 as uuid } from "https://deno.land/std@0.74.0/uuid/mod.ts";
-// export { parse as dateParse } from "https://deno.land/std@0.74.0/datetime/mod.ts";
-// export { valivar } from "https://deno.land/x/valivar@v6.2.9/mod.ts";
