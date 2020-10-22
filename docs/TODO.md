@@ -25,6 +25,7 @@
   - markdown
   - transformations, e.g. syntax highlight, css autoprefixer
   - custom parsing of properties using global function and calling that property, e.g. `toDate(str)` as global property
+  -> `import { parse as dateParse } from "https://deno.land/std@0.74.0/datetime/mod.ts";`
 
 
 

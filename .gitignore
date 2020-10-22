@@ -1,6 +1,6 @@
-# todo: temporary
+# todo: temporary, delete
 dst
-tmp*
+tmp
 .env
 
 .vscode
