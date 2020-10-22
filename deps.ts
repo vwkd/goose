@@ -40,3 +40,6 @@ export {
     walkTreeLeafCall,
     walkTreeCompare
 } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_tree.ts";
+
+// export { createHash } from "https://deno.land/std@0.74.0/hash/mod.ts";
+// export { v4 as uuid } from "https://deno.land/std@0.74.0/uuid/mod.ts";
