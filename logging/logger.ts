@@ -38,8 +38,8 @@ export class LogRecord {
 
 const DEFAULT_LEVEL = "Info";
 const DEFAULT_LOGGER_NAME = "logger";
-const defaultConsoleHandler = new ConsoleHandler(DEFAULT_LEVEL);
-const DEFAULT_HANDLERS = [defaultConsoleHandler];
+// const defaultConsoleHandler = new ConsoleHandler(DEFAULT_LEVEL);
+const DEFAULT_HANDLERS = []; // [defaultConsoleHandler];
 
 export class Logger {
   name: string;

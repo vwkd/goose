@@ -1,5 +1,4 @@
 export default {
-    title: "Peter's Blog",
-    author: "Peter",
+    title: "Chase the goose",
     answer: 42,
 };

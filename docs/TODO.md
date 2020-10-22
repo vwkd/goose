@@ -4,50 +4,89 @@
 
 
 
-## Near term
+## In Progress
 
-- *. -> .html templates who aren't named "index" must go into subfolder with that name and itself is named "index.html"...
-  needs a global targetPathTransformation for templates, like transformations but not multiple only one, used if template doesn't set own targetPath, e.g. a template with name.* -> name.html has its targetPath transformed to /name/index.html
-- add logging to code, every error throw log.error() etc.
+- what happens if user provided paths for files are directories, e.g. layoutPath, targetPath in template data or transform target path function, etc.
+- make render function take single object argument, such that can use destructuring, future proof if later gives more arguments, e.g. pagination, collection, etc
+- in template data make `.targetPath` and `.layoutPath()` take a function that is passed the data object, such that can use all data variables
+  -> needs to separate `data` function from a `config` function such that can load `data` first, then execute `config` with merged data just before rendering, can let `data` function be also object like in global data file
+- logging: log every error throw, add positional information
   needs to stringify error? otherwises will call `toString()` method...
   remove user identifying information from logs, e.g. printing file content
   how can get rid of uncaught error across module boundaries?
   wrap all user functions in try..catch blocks, e.g. render, imports, transformations, etc.
-- what if script finishes earlier than unawaited promises and they throw an error?
+  log / error messages only relative paths to whatever makes sense, e.g. src, dst, _layout, make clear through text what it is
+- async: what if script finishes earlier than unawaited promises and they throw an error?
   needs to await it at the most outer level, then catch any
-- find all paths, e.g. in error messages, and normalise, e.g. with src directory, relative to what...
 - in template loop make sure all references are deleted, such that GC can clean up
   -> functional programming, don't mutate, only copy
+- add types everywhere
+- more examples
+  - markdown
+  - transformations, e.g. syntax highlight, css autoprefixer
+  - custom parsing of properties using global function and calling that property, e.g. `toDate(str)` as global property
 
-- where is sorting used? sort by file creation date, else by file name
-  e.g. date from `FileInfo.birthtime` from `Deno.lstat()`
-- allow properties in permalink property
-- allow custom sorting besides date property
-- duration timing
-- debugging
+
+
+## Ideas
+
 - multiple configs depending on environment variables, e.g. dev, prod
-
-## Desired features
-
-- add hash to filename of static files ???
-- wildcards for transformations, e.g. `.md .html`, `.md *`, `* .html`, `* *`
+- wildcards for extensions in transformations and target path transformations, e.g. `.md .html`, `.md *`, `* .html`, `* *`
   specific are executed first, then with single wildcard (wildcard in output first before wildcard in input?), then with both wildcards, maybe allow to configure...
+- add hash to filename of assets but not .html files for cache invalidation
+  -> difficult, because would need to parse content of all files and add everywhere where path is referenced, maybe leave this task to module bundlers or CDN directly...
+  -> would need to loop over files list, transform output paths, loop over _all_ files and search through content where referenced, might be error prone if doesn't reference full path, e.g. in JS could reference like `import("my" + "path")`
+- editor extension for syntax highlighting in template strings, e.g. markdown
+
+
 
 ## Long term
 
 - parallelise
 - incremental building
-- use Deno's Permission APIs when stable
-- editor extension for content in template strings, e.g. markdown
+- use Deno's Permission APIs when stable to prompt for permission
+- Collections: the set of template data objects of all template that have a specific "tag", available in the `render` function of any template, but doesn't contain only template data objects but also metadata of the file like paths, creation date, etc, the collection is sorted by creation date of the files but this can be customised by a user provided function in the config file, also special "all" collection of all templates no matter if have tag or not, and a way to exclude file from any collection, allow a template to not be outputted but still be used for collections
+-> would need to load template data for all templates first before can do any rendering, fundamentally different than individual processing of each template like right now...
+-> but if does, then could also throw an error if two outputted files have same targetPath
+-> sort by file creation date, else by file name, e.g. date from `FileInfo.birthtime` from `Deno.lstat()`
 
-## Questions
+```js
+// template.html.js
 
-CLI options
-// -f, --format         processed file types ??NEEDED?? ?? Would also need to parse as array where string has spaces
-// -p, --pathprefix     url template filter directory ?? NEEDED??
+export function data(config) {
+  // add to one or more collections
+  config.addCollection("posts", "javascript");
 
-## Examples
+  // exclude from all collection
+  config.addCollection(false);
+}
 
-- plugins via transformations
-e.g. syntax highlight, css autoprefixer
-- custom parsing of properties using global function and calling that property, e.g. `toDate(str)` as global property
+export function render(data, template, collection) {
+  // access data through collection[tag], e.g. collection.posts
+}
+```
+
+```js
+// .goose.js config file
+export default function(config) {
+  // func is called with array of collection as argument, expects another array as return value
+  config.transformCollection("posts", func)
+}
+```
+
+- Pagination: create multiple files for each item in a given set of data, set can be specified in the `data` function of a template, template is then executed for each item in the set, is available in the `render` function of the template, but should be able to paginate over any template data including global data as well, also items should be available in `data` function itself such that can use for example when setting `.targetPath`, also should be able to paginate over a collection to allow to create "tag" pages
+
+```js
+// template.html.js
+
+export function data(config) {
+  // enable pagination
+  config.addPagination(["Lorem", "ipsum", "dolor"]);
+}
+
+export function render(data, template, collection, pagination) {
+  // can access current item via pagination.item, e.g. "ipsum" depending on which file is generated
+  // can also access index via pagination.index, e.g. 1
+  // can access whole array using pagination.array, then get previous/next using pagination.array[pagination.index +- 1] etc. ?? OUT-OF-BOUNDS, BETTER PROVIDE READY MADE .before AND .after PROPERTIES
+}
+```

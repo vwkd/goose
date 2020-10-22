@@ -1,8 +1,8 @@
 # Goose
 
-A simple, fast and pluggable static site generator written in JavaScript for Deno.
+A simple, fast and pluggable static site generator for Deno. Inspired by Eleventy.
 
-Inspired by Eleventy. This is very much early development, and still far from feature parity with any established SSG.
+Check out the [examples](examples/) to see what goose can do.
 
 
 
@@ -25,7 +25,7 @@ To serve the output, you can use any off-the-shelve file server, e.g. [file_serv
 ```console
 deno install --allow-net --allow-read https://deno.land/std@0.74.0/http/file_server.ts
 
-file_server your/target/directory
+file_server dst/
 ```
 
 

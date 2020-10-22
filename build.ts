@@ -1,6 +1,6 @@
 // todo: add module name at beginning of error & log statements, because bubble up
 // todo: add helper notice to user at beginning of error statements to notice where it broke
-// todo: respect verbose and quiet options
+// todo: respect quiet option, maybe also verbose (or should just us˝e log?)
 
 import { log } from "./logger.ts";
 import {
@@ -568,6 +568,7 @@ export async function build(config, flags) {
         // todo: what to do if file.targetExtension is empty?
         const targetPathTransform = config.targetPathTransformation[file.sourceSecondExtension + file.targetExtension];
 
+        // todo: use only if targetPath wasn't set using template data
         if (targetPathTransform) {
             const targetPathRelativeTransformed = targetPathTransform(file.targetPathRelative);
             if (typeof targetPathRelativeTransformed != "string") {
@@ -608,6 +609,7 @@ export async function build(config, flags) {
 
         // ---------- write out ----------
 
+        // todo: log writing...
         if (!flags.dryrun) {
             // don't await, runs concurrently
             writeFile(file.targetPath, file.targetDirectory, transformedContent);
@@ -617,7 +619,7 @@ export async function build(config, flags) {
     const endTime = performance.now();
     const duration = (endTime - startTime) / 1000;
     const amount = files.templates.length + files.assets.length;
-    console.log(`Successfully build ${amount.toLocaleString()} ${amount == 1 ? "file" : "files"} in ${duration}s.`);
+    console.log(`Successfully built ${amount.toLocaleString(undefined, {maximumFractionDigits: 2})} ${amount == 1 ? "file" : "files"} in ${duration}s.`);
 
     log.info("Build ended.");
 }
