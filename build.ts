@@ -17,8 +17,9 @@ import {
     walkChainIdCall,
     walkChainIdMerge
 } from "./deps.ts";
+import type { Flags, Config } from "./types.ts";
 
-export async function build(config, flags) {
+export async function build(config: Config, flags: Flags) {
     log.info("Build started.");
     log.debug(`Build options: ${JSON.stringify(config)}`);
     log.debug(`Build flags: ${JSON.stringify(flags)}`);
@@ -26,6 +27,9 @@ export async function build(config, flags) {
     const startTime = performance.now();
 
     // ------ validate directories ------
+
+    log.trace("... Validating directories ...");
+
     const sourceFolderExists = await exists(config.source);
 
     if (!sourceFolderExists) {
@@ -35,223 +39,62 @@ export async function build(config, flags) {
     if (!flags.dryrun) {
         const targetFolderExists = await exists(config.target);
 
-        // beware: in meantime user could create target folder, overwrites because no second check before writing
-        if (!config.incrementalBuild && targetFolderExists) {
-            throw new Error(`Target folder ${config.target} already exists.`);
-        } else if (config.incrementalBuild && !targetFolderExists) {
-            console.warn(`Target folder ${config.target} doesn't exist. Will do a full build instead.`);
+        // beware: in meantime during build user could create target folder, overwrites because no second check before writing
+        if (/* !config.incrementalBuild && */ targetFolderExists) {
+            throw new Error(`Target folder ${config.target} already exists. Please delete or use incremental build instead.`);
+        } else if (/* config.incrementalBuild && */ !targetFolderExists) {
+            console.warn(`Target folder ${config.target} doesn't exist. Will do a full build instead of an incremental.`);
+            log.warn(`Target folder ${config.target} doesn't exist. Will do a full build instead of an incremental.`);
         }
     }
 
     // ------ load file list ------
-    // templates are rendered, assets are copied, rest is ignored
-    const files = { templates: [], assets: [], ignored: [], layouts: [], globaldata: [] };
 
-    const dataDirectory = pathJoin(config.source, config.dataDirname);
-    const layoutDirectory = pathJoin(config.source, config.layoutDirname);
+    log.trace("... Loading file list ...");
+
+    // todo: maybe factor out into standalone arrays
+    const files: FileList = { templates: [], assets: [], ignored: [], layouts: [], globals: [] };
 
     try {
         for await (const item of walk(config.source, { includeDirs: false })) {
+            const file = makeFileObject(config.source, config.target, item.path);
 
-            // file path object, can change any property, all others reflect the new value
-            // beware: must initialise by setting sourcePath(Relative) and targetPath(Relative) before reading anything!
-            // could have also made instance of a class whose constructor had taken (source, target, sourcePath(Relative), targetPath(Relative)) as arguments
-            const file = (function (source, target) {
-                let dir_s = undefined;
-                let name_s = undefined;
-                let ext_s = undefined;
-
-                let dir_t = undefined;
-                let name_t = undefined;
-                let ext_t = undefined;
-
-                return {
-                    get sourcePath() {
-                        return pathJoin(dir_s, name_s + ext_s);
-                    },
-
-                    set sourcePath(val) {
-                        const { dir: _dir, name: _name, ext: _ext } = pathParse(val);
-                        dir_s = _dir;
-                        name_s = _name;
-                        ext_s = _ext;
-                    },
-
-                    get sourcePathRelative() {
-                        return pathRelative(source, this.sourcePath);
-                    },
-
-                    set sourcePathRelative(val) {
-                        this.sourcePath = pathJoin(source, val);
-                    },
-
-                    get sourceDirectory() {
-                        return dir_s;
-                    },
-
-                    set sourceDirectory(val) {
-                        dir_s = val;
-                    },
-
-                    get sourceDirectoryRelative() {
-                        return pathRelative(source, this.sourceDirectory);
-                    },
-
-                    set sourceDirectoryRelative(val) {
-                        this.sourceDirectory = pathJoin(source, val);
-                    },
-
-                    get sourceBase() {
-                        return name_s + ext_s;
-                    },
-
-                    set sourceBase(val) {
-                        const { name: _name, ext: _ext } = pathParse(val);
-                        name_s = _name;
-                        ext_s = _ext;
-                    },
-
-                    get sourceName() {
-                        return name_s;
-                    },
-
-                    set sourceName(val) {
-                        name_s = val;
-                    },
-
-                    get sourceExtension() {
-                        return ext_s;
-                    },
-
-                    set sourceExtension(val) {
-                        ext_s = val;
-                    },
-
-                    // ------ target path -------
-
-                    get targetPath() {
-                        return pathJoin(dir_t, name_t + ext_t);
-                    },
-
-                    set targetPath(val) {
-                        const { dir: _dir, name: _name, ext: _ext } = pathParse(val);
-                        dir_t = _dir;
-                        name_t = _name;
-                        ext_t = _ext;
-                    },
-
-                    get targetPathRelative() {
-                        return pathRelative(target, this.targetPath);
-                    },
-
-                    set targetPathRelative(val) {
-                        this.targetPath = pathJoin(target, val);
-                    },
-
-                    get targetDirectory() {
-                        return dir_t;
-                    },
-
-                    set targetDirectory(val) {
-                        dir_t = val;
-                    },
-
-                    get targetDirectoryRelative() {
-                        return pathRelative(target, this.targetDirectory);
-                    },
-
-                    set targetDirectoryRelative(val) {
-                        this.targetDirectory = pathJoin(target, val);
-                    },
-
-                    get targetBase() {
-                        return name_t + ext_t;
-                    },
-
-                    set targetBase(val) {
-                        const { name: _name, ext: _ext } = pathParse(val);
-                        name_t = _name;
-                        ext_t = _ext;
-                    },
-
-                    get targetName() {
-                        return name_t;
-                    },
-
-                    set targetName(val) {
-                        name_t = val;
-                    },
-
-                    get targetExtension() {
-                        return ext_t;
-                    },
-
-                    set targetExtension(val) {
-                        ext_t = val;
-                    }
-                };
-            })(config.source, config.target);
-
-            // initialise file, default targetPath to same relative path as sourcePath
-            file.sourcePath = item.path;
-            file.targetPathRelative = file.sourcePathRelative;
-
-            const [sourcePathRelativeFirst, ...sourcePathRelativeRestArr] = file.sourcePathRelative.split(
-                pathSeparator
-            );
-            const [
-                sourceDirectoryRelativeFirst,
-                ...sourceDirectoryRelativeRestArr
-            ] = file.sourceDirectoryRelative.split(pathSeparator);
-
-            // ignored filename
             if (file.sourceName.startsWith(config.ignoredFilename)) {
                 log.trace(`File is ignored because of filename: ${item.path}`);
                 files.ignored.push(file);
             }
 
-            // layout directory
-            else if (sourceDirectoryRelativeFirst == config.layoutDirname) {
-                if (sourceDirectoryRelativeRestArr.some(str => str.startsWith(config.ignoredDirname))) {
+            else if (file.sourceDirectoryRelativeFirstSegment == config.layoutDirname) {
+                if (file.sourceDirectoryRelativeRestSegment.some(str => str.startsWith(config.ignoredDirname))) {
                     log.trace(`File is ignored because of directory name: ${item.path}`);
                     files.ignored.push(file);
                 } else {
-                    log.trace(`File is layout because of directory: ${item.path}`);
-                    file.sourcePathRelativeToLayout = sourcePathRelativeRestArr.join(pathSeparator);
+                    log.trace(`File is layout because of directory name: ${item.path}`);
                     files.layouts.push(file);
                 }
             }
 
-            // data directory
-            else if (sourceDirectoryRelativeFirst == config.dataDirname) {
-                if (sourceDirectoryRelativeRestArr.some(str => str.startsWith(config.ignoredDirname))) {
+            else if (file.sourceDirectoryRelativeFirstSegment == config.dataDirname) {
+                if (file.sourceDirectoryRelativeRestSegment.some(str => str.startsWith(config.ignoredDirname))) {
                     log.trace(`File is ignored because of directory name: ${item.path}`);
                     files.ignored.push(file);
                 } else {
-                    log.trace(`File is global data because of directory: ${item.path}`);
-                    files.globaldata.push(file);
+                    log.trace(`File is global data because of directory name: ${item.path}`);
+                    files.globals.push(file);
                 }
             }
 
-            // ignored directory
             // after check for dataDirectory and layoutDirectory such that they can use ignoredFilename
             else if (file.sourceDirectory.split(pathSeparator).some(str => str.startsWith(config.ignoredDirname))) {
                 log.trace(`File is ignored because of directory name: ${item.path}`);
                 files.ignored.push(file);
             }
 
-            // JavaScript file
             else if (file.sourceExtension == ".js") {
-                // because name ends on second extension
-                // note: pathExtname returns empty string if single "." is first character, i.e. a nameless files like ".css.js" or ". .js" or "..js" are handled as asset
-                const secondExtension = pathExtname(file.sourceName);
-                if (secondExtension) {
-                    log.trace(`File is template because of double "${secondExtension}.js" extension: ${item.path}`);
-                    // note: targetPath may change later due to template data or targetPathTransformation
-                    file.sourceSecondExtension = secondExtension;
-                    file.sourcePathRelativeSecondExtension = pathJoin(file.sourceDirectoryRelative, file.sourceName);
-                    // strips trailing .js extension from targetPath
-                    file.targetPathRelative = file.sourcePathRelativeSecondExtension;
+                if (file.sourceExtensionSecond) {
+                    log.trace(`File is template because of double "${file.sourceExtensionSecond}.js" extension: ${item.path}`);            
+                    // effectively strips trailing .js extension from targetPath
+                    file.targetExtension = "";
                     files.templates.push(file);
                 } else {
                     log.trace(`File is asset because of single ".js" extension: ${item.path}`);
@@ -266,11 +109,13 @@ export async function build(config, flags) {
             }
         }
     } catch (e) {
-        // todo:
-        console.log(e);
+        throw new Error(`Couldn't build file list. ${e.message}`);
     }
 
     // ------ copy assets ------
+
+    log.trace("... Copying assets ...");
+
     // start copy as early as possible to give time
     // don't await here to allow for concurrency with rest of build, await whole build itself
     // todo: does awaiting build work for non-awaited files??
@@ -285,7 +130,7 @@ export async function build(config, flags) {
 
     // no restrictions of imported value (or return type of function), will just get merged away if not a normal object
     // todo: make robust, what does do with complex values...
-    for (const file of files.globaldata) {
+    for (const file of files.globals) {
         const relPath = "." + pathJoin(pathSeparator, file.sourcePath);
 
         let dataFile = undefined;
@@ -359,7 +204,9 @@ export async function build(config, flags) {
                     throw new Error(`The layoutPath in template ${file.sourcePath} must be a string.`);
                 }
                 if (val.trim() == "") {
-                    throw new Error(`The layoutPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`);
+                    throw new Error(
+                        `The layoutPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`
+                    );
                 }
                 const path = pathParse(val);
                 if (path.dir.split(pathSeparator).includes("..")) {
@@ -454,7 +301,9 @@ export async function build(config, flags) {
                     throw new Error(`The targetPath in template ${file.sourcePath} must be a string.`);
                 }
                 if (val.trim() == "") {
-                    throw new Error(`The targetPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`);
+                    throw new Error(
+                        `The targetPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`
+                    );
                 }
                 const path = pathParse(val);
                 if (path.dir.split(pathSeparator).includes("..")) {
@@ -474,7 +323,9 @@ export async function build(config, flags) {
                     throw new Error(`The layoutPath in template ${file.sourcePath} must be a string.`);
                 }
                 if (val.trim() == "") {
-                    throw new Error(`The layoutPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`);
+                    throw new Error(
+                        `The layoutPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`
+                    );
                 }
                 const path = pathParse(val);
                 if (path.dir.split(pathSeparator).includes("..")) {
@@ -619,7 +470,11 @@ export async function build(config, flags) {
     const endTime = performance.now();
     const duration = (endTime - startTime) / 1000;
     const amount = files.templates.length + files.assets.length;
-    console.log(`Successfully built ${amount.toLocaleString(undefined, {maximumFractionDigits: 2})} ${amount == 1 ? "file" : "files"} in ${duration}s.`);
+    console.log(
+        `Successfully built ${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${
+            amount == 1 ? "file" : "files"
+        } in ${duration}s.`
+    );
 
     log.info("Build ended.");
 }
@@ -637,3 +492,236 @@ async function writeFile(path, directory, content) {
     await ensureDir(directory);
     await Deno.writeTextFile(path, content);
 }
+
+/**
+ * Splits path into its constituents
+ * path = dir + name + ext
+ *      = root + dirRel + name + ext
+ * @param path path to split
+ * @returns object with root, dirRel, name and ext properties
+ */
+function splitPath(path: string): { root: string; dirRel: string; name: string; ext: string } {
+    const { root, dir, name, ext } = pathParse(path);
+    return { root: root, dirRel: pathRelative(root, dir), name: name, ext: ext };
+}
+
+/**
+ * Builds file object. Setting any property updates all others.
+ * targetPath is initialised to same relative path in target as sourcePath is in source
+ * source/targetPath/Directory are stripped of leading root segment
+ * TODO: Make sure source and target don't start with pathSeparator, otherwise xDirectory/PathRelative will be absolute, and break xPath/DirectoryRelative*Segment()
+ * TODO: Make sure xPath/DirectoryRelative isn't set with an absolute path, otherwise if source and target are empty, this will break xPath/DirectoryRelative*Segment()
+ * @param source path of source directory
+ * @param target path of target directory
+ * @param sourcePath path of file
+ */
+// todo: relax constraint of return type
+// todo: check when uses sourcePath/Directory without subtracting root first, e.g. in computation of sourcePath/DirectoryRelative...
+function makeFileObject(source: string, target: string, sourcePath: string): Readonly<FileObject> {
+    // dir_*, name_*, ext_* hold data, will be used by getter and setters
+
+    let { dirRel: dirRel_s, name: name_s, ext: ext_s } = splitPath(sourcePath);
+
+    let dirRel_t = pathJoin(target, pathRelative(source, dirRel_s));
+    let name_t = name_s;
+    let ext_t = ext_s;
+
+    return {
+        // ------ source path -------
+
+        get sourcePath() {
+            return pathJoin(dirRel_s, name_s + ext_s);
+        },
+
+        set sourcePath(val) {
+            const { dirRel: _dirRel, name: _name, ext: _ext } = splitPath(val);
+            dirRel_s = _dirRel;
+            name_s = _name;
+            ext_s = _ext;
+        },
+
+        get sourcePathRelative() {
+            return pathRelative(source, this.sourcePath);
+        },
+
+        set sourcePathRelative(val) {
+            this.sourcePath = pathJoin(source, val);
+        },
+
+        get sourceDirectory() {
+            return dirRel_s;
+        },
+
+        set sourceDirectory(val) {
+            const { dirRel: _dirRel } = splitPath(val);
+            dirRel_s = _dirRel;
+        },
+
+        get sourceDirectoryRelative() {
+            return pathRelative(source, this.sourceDirectory);
+        },
+
+        set sourceDirectoryRelative(val) {
+            this.sourceDirectory = pathJoin(source, val);
+        },
+
+        get sourceBase() {
+            return name_s + ext_s;
+        },
+
+        set sourceBase(val) {
+            const { name: _name, ext: _ext } = pathParse(val);
+            name_s = _name;
+            ext_s = _ext;
+        },
+
+        get sourceName() {
+            return name_s;
+        },
+
+        set sourceName(val) {
+            name_s = val;
+        },
+
+        get sourceExtension() {
+            return ext_s;
+        },
+
+        set sourceExtension(val) {
+            ext_s = val;
+        },
+
+        // only used for files in top-level data or layout directory
+        // TODO: Make sure source and target don't start with pathSeparator, otherwise xDirectory/PathRelative will be absolute, and break xPath/DirectoryRelative*Segment()
+        // TODO: Make sure xPath/DirectoryRelative isn't set with an absolute path, otherwise if source and target are empty, this will break xPath/DirectoryRelative*Segment()
+        get sourceDirectoryRelativeFirstSegment() {
+            const [first, ...restArr] = this.sourceDirectoryRelative.split(pathSeparator);
+            return first;
+        },
+
+        // only used for files in top-level data or layout directory
+        // TODO: Make sure source and target don't start with pathSeparator, otherwise xDirectory/PathRelative will be absolute, and break xPath/DirectoryRelative*Segment()
+        // TODO: Make sure xPath/DirectoryRelative isn't set with an absolute path, otherwise if source and target are empty, this will break xPath/DirectoryRelative*Segment()
+        get sourceDirectoryRelativeRestSegment() {
+            const [first, ...restArr] = this.sourceDirectoryRelative.split(pathSeparator);
+            return restArr;
+        },
+
+        get sourceExtensionSecond() {
+            // because name ends on second extension if ext is first extension
+            // note: pathExtname returns empty string if single "." is first character, i.e. a nameless files like ".css.js" or ". .js" or "..js" are handled as asset
+            // is empty string if doesn't find anything
+            return pathExtname(this.sourceName);
+        },
+
+        // ------ target path -------
+
+        get targetPath() {
+            return pathJoin(dirRel_t, name_t + ext_t);
+        },
+
+        set targetPath(val) {
+            const { dirRel: _dirRel, name: _name, ext: _ext } = splitPath(val);
+            dirRel_t = _dirRel;
+            name_t = _name;
+            ext_t = _ext;
+        },
+
+        get targetPathRelative() {
+            return pathRelative(target, this.targetPath);
+        },
+
+        set targetPathRelative(val) {
+            this.targetPath = pathJoin(target, val);
+        },
+
+        get targetDirectory() {
+            return dirRel_t;
+        },
+
+        set targetDirectory(val) {
+            const { dirRel: _dirRel } = splitPath(val);
+            dirRel_t = _dirRel;
+        },
+
+        get targetDirectoryRelative() {
+            return pathRelative(target, this.targetDirectory);
+        },
+
+        set targetDirectoryRelative(val) {
+            this.targetDirectory = pathJoin(target, val);
+        },
+
+        get targetBase() {
+            return name_t + ext_t;
+        },
+
+        set targetBase(val) {
+            const { name: _name, ext: _ext } = pathParse(val);
+            name_t = _name;
+            ext_t = _ext;
+        },
+
+        get targetName() {
+            return name_t;
+        },
+
+        set targetName(val) {
+            name_t = val;
+        },
+
+        get targetExtension() {
+            return ext_t;
+        },
+
+        set targetExtension(val) {
+            ext_t = val;
+        },
+
+        // only used for files in top-level data or layout directory
+        // TODO: Make sure source and target don't start with pathSeparator, otherwise xDirectory/PathRelative will be absolute, and break xPath/DirectoryRelative*Segment()
+        // TODO: Make sure xPath/DirectoryRelative isn't set with an absolute path, otherwise if source and target are empty, this will break xPath/DirectoryRelative*Segment()
+        get targetDirectoryRelativeFirstSegment() {
+            const [first, ...restArr] = this.targetDirectoryRelative.split(pathSeparator);
+            return first;
+        },
+
+        // only used for files in top-level data or layout directory
+        // TODO: Make sure source and target don't start with pathSeparator, otherwise xDirectory/PathRelative will be absolute, and break xPath/DirectoryRelative*Segment()
+        // TODO: Make sure xPath/DirectoryRelative isn't set with an absolute path, otherwise if source and target are empty, this will break xPath/DirectoryRelative*Segment()
+        get targetDirectoryRelativeRestSegment() {
+            const [first, ...restArr] = this.targetDirectoryRelative.split(pathSeparator);
+            return restArr;
+        }
+    };
+}
+
+type FileObject = {
+    sourcePath: string;
+    sourcePathRelative: string;
+    sourceDirectory: string;
+    sourceDirectoryRelative: string;
+    sourceBase: string;
+    sourceName: string;
+    sourceExtension: string;
+    sourceExtensionSecond: string;
+    sourceDirectoryRelativeFirstSegment: string;
+    sourceDirectoryRelativeRestSegment: string[];
+    targetPath: string;
+    targetPathRelative: string;
+    targetDirectory: string;
+    targetDirectoryRelative: string;
+    targetBase: string;
+    targetName: string;
+    targetExtension: string;
+    targetDirectoryRelativeFirstSegment: string;
+    targetDirectoryRelativeRestSegment: string[];
+};
+
+type FileList = {
+    assets: FileObject[];
+    templates: FileObject[];
+    layouts: FileObject[];
+    globals: FileObject[];
+    ignored: FileObject[];
+};

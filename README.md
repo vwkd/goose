@@ -62,6 +62,8 @@ The following properties can be set on the `config` argument. Note, you can also
 
 Note, the layout and data directory must reside in the top-level of the source directory, therefore `layoutDirname` and `dataDirname` specify only the name and not the path. Note, `ignoredDirname` doesn't apply to the layout and data directory name, such that you may use `ignoredDirname` in `dataDirname` and `layoutDirname`. However, inside the layout and data directory the `.ignoredFilename` and `.ignoredDirectory` apply as normal.
 
+Note, paths are taken relative to what is described above, not relative to the path of the config file itself, especially if the config file doesn't reside in the current working directory.
+
 The following methods can be called on the `config` argument.
 
 - `.getTransformations(sourceExt, targetExt)`: read all transformations for templates with given source and target extensions, returns array or `undefined` if no transformations have been set yet

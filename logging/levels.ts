@@ -2,34 +2,25 @@
 /** Get log level numeric values through enum constants
  */
 
-export enum LogLevelNames {
-    Trace = "Trace",
-    Debug = "Debug",
-    Info = "Info",
-    Warn = "Warn",
-    Error = "Error",
-    Critical = "Critical"
-}
-
-export enum LogLevels {
-    Trace = 0,
-    Debug = 10,
-    Info = 20,
-    Warn = 30,
-    Error = 40,
-    Critical = 50
+export const LogLevels = {
+    Trace: 0,
+    Debug: 10,
+    Info: 20,
+    Warn: 30,
+    Error: 40,
+    Critical: 50
 }
 
 /** Union of valid log level strings */
 export type LevelName = keyof typeof LogLevels;
 
 const byLevel: Record<string, LevelName> = {
-    [LogLevels.Trace]: LogLevelNames.Trace,
-    [LogLevels.Debug]: LogLevelNames.Debug,
-    [LogLevels.Info]: LogLevelNames.Info,
-    [LogLevels.Warn]: LogLevelNames.Warn,
-    [LogLevels.Error]: LogLevelNames.Error,
-    [LogLevels.Critical]: LogLevelNames.Critical
+    [LogLevels.Trace]: "Trace",
+    [LogLevels.Debug]: "Debug",
+    [LogLevels.Info]: "Info",
+    [LogLevels.Warn]: "Warn",
+    [LogLevels.Error]: "Error",
+    [LogLevels.Critical]: "Critical"
 };
 
 /** Returns the numeric log level associated with the passed,
@@ -37,17 +28,17 @@ const byLevel: Record<string, LevelName> = {
  */
 export function getLevelByName(name: LevelName): number {
     switch (name) {
-        case LogLevelNames.Trace:
+        case "Trace":
             return LogLevels.Trace;
-        case LogLevelNames.Debug:
+        case "Debug":
             return LogLevels.Debug;
-        case LogLevelNames.Info:
+        case "Info":
             return LogLevels.Info;
-        case LogLevelNames.Warn:
+        case "Warn":
             return LogLevels.Warn;
-        case LogLevelNames.Error:
+        case "Error":
             return LogLevels.Error;
-        case LogLevelNames.Critical:
+        case "Critical":
             return LogLevels.Critical;
         default:
             throw new Error(`no log level found for "${name}"`);

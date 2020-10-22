@@ -20,7 +20,7 @@
   needs to await it at the most outer level, then catch any
 - in template loop make sure all references are deleted, such that GC can clean up
   -> functional programming, don't mutate, only copy
-- add types everywhere
+- add types everywhere, everywhere undefined, disallow any
 - more examples
   - markdown
   - transformations, e.g. syntax highlight, css autoprefixer
@@ -76,6 +76,7 @@ export default function(config) {
 ```
 
 - Pagination: create multiple files for each item in a given set of data, set can be specified in the `data` function of a template, template is then executed for each item in the set, is available in the `render` function of the template, but should be able to paginate over any template data including global data as well, also items should be available in `data` function itself such that can use for example when setting `.targetPath`, also should be able to paginate over a collection to allow to create "tag" pages
+-> could give an API to build function directly, arguments are a render function or path to a template file that exports one, a data object and a targetPath, then can call build as often as wants, can also create pages out of thin air without needing any template. BUT that would decouple content from files, instead wants a `post.html.js` that generates all post files...
 
 ```js
 // template.html.js
