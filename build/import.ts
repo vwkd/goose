@@ -1,58 +1,75 @@
+// todo: give path information, such that can print in error messages
+
 import { log } from "../logger.ts";
 import { pathJoin, pathSeparator, pathParse, pathFormat } from "../deps.ts";
-import type { BaseFile, Global, Template, Layout, LayoutConfig, TemplateConfig } from "../types.ts";
+import type { BaseFile, Global, Template, Layout, LayoutConfig, TemplateConfig, Data, Render } from "../types.ts";
 
+/**
+ * Loads data for global
+ * @param file global to load
+ * @returns mutated global with data property
+ */
 export async function loadGlobal(file: BaseFile): Promise<Global> {
+    log.trace(`Loading global ${file.sourcePath}`);
+
     const globalModule = await importFile(file.sourcePath);
 
     const data = await getData(globalModule, "default");
 
-    // TODO: can't copy, otherwise looses getter & setter, needed in targetPathTransformation
-    // return { ...file, data };
     file.data = data;
     return file;
 }
 
+/**
+ * Loads data, config and render for layout
+ * @param file layout to load
+ * @returns mutated layout with data, render and config properties
+ */
 export async function loadLayout(file: BaseFile): Promise<Layout> {
+    log.trace(`Loading layout ${file.sourcePath}`);
+
     const layoutModule = await importFile(file.sourcePath);
 
     const data = await getData(layoutModule, "data");
 
-    // modifies file directly
-    // todo: compute new file with new properties, can type better
     const configArgument = LayoutConfigArgument(file);
     await getConfig(layoutModule, "config", configArgument);
 
     const render = await getRender(layoutModule, "render");
 
-    // TODO: can't copy, otherwise looses getter & setter, needed in targetPathTransformation
-    // return { ...file, data, render };
     file.data = data;
     file.render = render;
     return file;
 }
 
+/**
+ * Loads data, config and render for template
+ * @param file template to load
+ * @returns mutated template with data, render, config properties
+ */
 export async function loadTemplate(file: BaseFile): Promise<Template> {
+    log.trace(`Loading template ${file.sourcePath}`);
+
     const templateModule = await importFile(file.sourcePath);
 
     const data = await getData(templateModule, "data");
 
-    // modifies file directly
-    // todo: compute new file with new properties, can type better
     const configArgument = TemplateConfigArgument(file);
     await getConfig(templateModule, "config", configArgument);
 
     const render = await getRender(templateModule, "render");
 
-    // TODO: can't copy, otherwise looses getter & setter, needed in targetPathTransformation
-    // return { ...file, data, render };
     file.data = data;
     file.render = render;
     return file;
 }
 
-// beware: needs path relative to CWD!
-// todo: implement properly relative path
+/**
+ * Imports a module
+ * @param path path of module
+ * @returns imported module
+ */
+// todo: import path breaks if goose doesn't reside in same directory as the cwd
 async function importFile(path: string): Promise<object> {
     log.trace(`Importing ${path}`);
 
@@ -64,28 +81,27 @@ async function importFile(path: string): Promise<object> {
     }
 }
 
-// todo: what if obj itself is undefined
-// gives data object at key, may be object or function that returns object
-// todo: give path information, such that can print in error messages
-// todo: use DataFunction = () => Promise<Data>;
-async function getData(obj: object, key: string) {
-    const dataObjectOrFunction = obj?.[key];
+/**
+ * Extracts the data from a module.
+ * If it's a function, it's awaited return value is taken.
+ * @param module module with a data property
+ * @param key name of data property
+ * @returns extracted data
+ */
+async function getData(module: object, key: string): Promise<Data> {
+    log.trace(`Getting data.`);
 
-    // if no export or user explicitly exported undefined
+    const dataObjectOrFunction = module?.[key];
+
+    // allow falsy values (except undefined) as well
     if (dataObjectOrFunction === undefined) {
-        // todo: make more descriptive of data function
-        console.warn(`Module doesn't have a data export. Will ignore.`);
-    }
-
-    // allows export of falsy values, even if probably get overwritten in merge since are primitive values that don't merge with objects
-    else if (typeof dataObjectOrFunction == "function") {
+        console.warn(`Module doesn't have a data export. Won't use it.`);
+    } else if (typeof dataObjectOrFunction == "function") {
         try {
-            // await such that allows export async data function
             const data = await dataObjectOrFunction();
 
-            // allows export of falsy values, even if probably get overwritten in merge since are primitive values that don't merge with objects
             if (data === "undefined") {
-                console.warn(`Data function returned no data. Will ignore.`);
+                console.warn(`Data function returned no data. Won't use it.`);
             }
 
             return data;
@@ -97,42 +113,64 @@ async function getData(obj: object, key: string) {
     return dataObjectOrFunction;
 }
 
-// todo: fix same problems as in getData
-async function getConfig(obj: object, key: string, configArgument: Readonly<LayoutConfig> | Readonly<TemplateConfig>) {
-    const configFunction = obj?.[key];
+/**
+ * Extracts the config function from a module.
+ * Calls the function with a configArgument through which it mutates a file.
+ * The function is awaited.
+ * @param module module with a config property
+ * @param key name of config property
+ * @param configArgument argument through which the config function mutates a file
+ */
+async function getConfig(
+    module: object,
+    key: string,
+    configArgument: Readonly<LayoutConfig> | Readonly<TemplateConfig>
+): Promise<void> {
+    log.trace(`Getting config.`);
 
-    // if no export or user explicitly exported undefined
+    const configFunction = module?.[key];
+
     if (configFunction === undefined) {
-        // todo: make more descriptive of config function
-        console.warn(`Module doesn't export a config function. Will ignore.`);
+        console.warn(`Module doesn't have a config export. Won't use it.`);
         return configFunction;
     } else if (typeof configFunction == "function") {
         try {
-            // await such that allows export async config function
             return await configFunction(configArgument);
         } catch (e) {
             throw new Error(`Config function threw an error. ${e.message}`);
         }
     } else {
-        throw new Error(`Config function must be a function.`);
+        throw new Error(`Config export must be a function.`);
     }
 }
 
-async function getRender(obj: object, key: string) {
-    const renderFunction = obj?.[key];
+/**
+ * Extracts the render function from a module.
+ * @param module module with a render property
+ * @param key name of render property
+ * @returns extracted render function
+ */
+async function getRender(module: object, key: string): Promise<Render> {
+    log.trace(`Getting render.`);
 
-    // if no export or user explicitly exported undefined
+    const renderFunction = module?.[key];
+
     if (renderFunction === undefined) {
-        // todo: make more descriptive of render function
-        console.warn(`Module doesn't export a render function. Will ignore.`);
+        console.warn(`Module doesn't have a render export. Won't use it.`);
         return renderFunction;
     } else if (typeof renderFunction == "function") {
         return renderFunction;
     } else {
-        throw new Error(`Render function must be a function.`);
+        throw new Error(`Render export must be a function.`);
     }
 }
 
+/**
+ * Creates the argument that is passed to the config function of a layout file.
+ * The config function mutates the file through the argument.
+ * @param file layout file that is mutated by the config function
+ * @returns argument object that is passed to the config function
+ */
 function LayoutConfigArgument(file: BaseFile): Readonly<LayoutConfig> {
     return Object.freeze({
         // is undefined if not set
@@ -141,17 +179,17 @@ function LayoutConfigArgument(file: BaseFile): Readonly<LayoutConfig> {
         },
         set layoutPath(val) {
             if (typeof val != "string") {
-                throw new Error(`The layoutPath in template ${file.sourcePath} must be a string.`);
+                throw new Error(`The layoutPath in layout ${file.sourcePath} must be a string.`);
             }
             if (val.trim() == "") {
                 throw new Error(
-                    `The layoutPath in template ${file.sourcePath} must be a non-empty non-whitespace-only string.`
+                    `The layoutPath in layout ${file.sourcePath} must be a non-empty non-whitespace-only string.`
                 );
             }
             const path = pathParse(val);
             if (path.dir.split(pathSeparator).includes("..")) {
                 throw new Error(
-                    `The layoutPath ${val} in template ${file.sourcePath} must not contain ".." path segments.`
+                    `The layoutPath ${val} in layout ${file.sourcePath} must not contain ".." path segments.`
                 );
             }
             file.layoutPathRelative = pathFormat({ dir: path.dir, base: path.base });
@@ -159,6 +197,12 @@ function LayoutConfigArgument(file: BaseFile): Readonly<LayoutConfig> {
     });
 }
 
+/**
+ * Create the argument that is passed to the config function of a template file.
+ * The config function mutates the file through the argument.
+ * @param file template file that is mutated by the config function
+ * @returns argument object that is passed to the config function
+ */
 function TemplateConfigArgument(file: BaseFile): Readonly<TemplateConfig> {
     return Object.freeze({
         get targetPath() {
@@ -182,7 +226,7 @@ function TemplateConfigArgument(file: BaseFile): Readonly<TemplateConfig> {
             file.targetPathRelative = pathFormat({ dir: path.dir, base: path.base });
         },
 
-        // returns undefined if not set
+        // is undefined if not set
         get layoutPath() {
             return file.layoutPathRelative;
         },

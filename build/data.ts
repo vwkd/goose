@@ -2,27 +2,40 @@ import { log } from "../logger.ts";
 import type { Global, Layout, Template, MergeFunction, Data } from "../types.ts";
 import { walkChainIdMerge } from "../deps.ts";
 
-// takes all files and returns single merged data
-// merge data across all globals
-export function mergeDataGlobal(files: Global[], mergeFunction: MergeFunction): Data {
+/**
+ * Merges data property over all files using a merge function
+ * If data property is undefined skips it
+ * @param files array of files
+ * @param mergeFunction merge function
+ * @returns merged data
+ */
+export function mergeDataGlobal(files: Global[], mergeFunction: MergeFunction): Data | undefined {
     log.trace(`Merging data`);
 
-    const filesWithData = files.filter(el => el.data !== undefined).map(el => el.data);
+    const dataArr = files.filter(el => el.data !== undefined).map(el => el.data);
 
-    // don't use data if undefined
-    return mergeFunction({}, ...filesWithData);
+    return mergeFunction({}, ...dataArr);
 }
 
-// takes single file and returns merged data along chain
-// todo: filter out undefined
-// todo: check that goes well if any layout of another layout doesn't exist
-// desc: until first layout that doesn't exist or doesn't export data
-export function mergeDataLayout(file: Layout, layouts: Layout[], mergeFunction: MergeFunction, globalData: Data): Layout {
+/** Merges data of layout with data of each layout in its layout chain and global data.
+ * Stops at node that doesn't have a linked node or whose linked node doesn't exist.
+ * If data property is undefined skips it.
+ * @param file layout file for which to merge data
+ * @param layouts array of layouts
+ * @param mergeFunction merge function
+ * @param globalData merged global data
+ * @returns mutated layout file with the merged data in the `dataMerged` property
+ */
+// todo: warn when layout links to another layout that doesn't exist, similar to template below, similar to mergeDataLayout
+// todo: warn when layout links to a cyclical dependency, similar to mergeDataLayout
+export function mergeDataLayout(
+    file: Layout,
+    layouts: Layout[],
+    mergeFunction: MergeFunction,
+    globalData: Data
+): Layout {
     log.trace(`Merging data`);
 
-    // merge data across layout chain, needs all layouts ready
-    // loops until first layout without a data function
-    // todo: what happens if template itself doesn't have one?
     const mergedData = walkChainIdMerge({
         startNode: file,
         nodeList: layouts,
@@ -32,21 +45,29 @@ export function mergeDataLayout(file: Layout, layouts: Layout[], mergeFunction: 
         mergeFunction: mergeFunction
     });
 
-    // merge in global data, saves computations when multiple templates use same layout
-    // don't use mergeData data if undefined
-    // if globalData is undefined, get's merged away
-    // return mergedData === undefined ? globalData : mergeFunction(globalData, mergedData);
+    // ignore local data if undefined
+    // doesn't matter if globalData is undefined because then just stays undefined
     if (mergedData === undefined) {
-        return {...file, dataMerged: globalData}
-    } else {
-        return {...file, dataMerged: mergeFunction(globalData, mergedData)}
+        file.dataMerged = globalData;
+        return file;
+    }
+
+    // doesn't matter if globalData is undefined because as left-most value in mergeFunction() gets merged away
+    else {
+        file.dataMerged = mergeFunction(globalData, mergedData);
+        return file;
     }
 }
 
-// todo: check that goes well if layout of template doesn't exist
-// desc: merges data of template over its layout chain
-// desc: until first layout that doesn't exist or doesn't export data
-// just uses already merged data of layout and global data in case if layout doesn't exist
+/**
+ * Merges data of template with data of each layout in its layout chain and global data
+ * Simply merges with already merged data of its layout from mergeDataLayout()
+ * If data property is undefined skips it
+ * @param file template file for whic to merge data
+ * @param layouts array of layouts
+ * @param mergeFunction merge function
+ * @param globalData merged global data
+ */
 export function mergeDataTemplate(
     file: Template,
     layouts: Layout[],
@@ -55,32 +76,57 @@ export function mergeDataTemplate(
 ): Data {
     log.trace(`Merging data`);
 
+    // has layout, merge local data with already merged data of layout
     if (file.layoutPathRelative) {
-        // if exists is unique because files on file system are unique
+        // can choose first match because path in file system is unique
         const layout = layouts.find(lay => {
             return file.layoutPathRelative == lay.sourcePathRelativeRestSegment;
         });
 
-        // layout does exists, use its merged data
+        // layout exists, merge local data with already merged data of layout
         if (layout) {
-            // global data was merged with layout data already
             // don't use local data if undefined
-            return file.data === undefined ? layout.dataMerged : mergeFunction(layout.dataMerged, file.data);
+            // doesn't matter if layout.dataMerged is undefined because then just stays undefined
+            if (file.data === undefined) {
+                return layout.dataMerged;
+            }
+
+            // doesn't matter if layout.dataMerged is undefined because as left-most value in mergeFunction() gets merged away
+            else {
+                return mergeFunction(layout.dataMerged, file.data);
+            }
         }
 
         // layout doesn't exist, merge local data with global data
         else {
             console.warn(
-                `Couldn't find layout ${file.layoutPathRelative} for template ${file.sourcePath}. Will ignore the chain.`
+                `Couldn't find layout ${file.layoutPathRelative} for template ${file.sourcePath}. Won't use it.`
             );
+
             // don't use local data if undefined
-            return file.data === undefined ? globalData : mergeFunction(globalData, file.data);
+            // doesn't matter if globalData is undefined because then just stays undefined
+            if (file.data === undefined) {
+                return globalData;
+            }
+
+            // doesn't matter if globalData is undefined because as left-most value in mergeFunction() gets merged away
+            else {
+                return mergeFunction(globalData, file.data);
+            }
         }
     }
 
     // has no layout, merge local data with global data
     else {
         // don't use local data if undefined
-        return file.data === undefined ? globalData : mergeFunction(globalData, file.data);
+        // doesn't matter if globalData is undefined because then just stays undefined
+        if (file.data === undefined) {
+            return globalData;
+        }
+
+        // doesn't matter if globalData is undefined because as left-most value in mergeFunction() gets merged away
+        else {
+            return mergeFunction(globalData, file.data);
+        }
     }
 }

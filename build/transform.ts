@@ -2,47 +2,45 @@ import { log } from "../logger.ts";
 import { pathParse, pathSeparator } from "../deps.ts";
 import type { Transformation, Template } from "../types.ts";
 
-export async function transformTemplate(
-    file: Template,
-    renderedString: string,
-    transformations: { [extensionPair: string]: Transformation[] }
-): Promise<string> {
+/**
+ * Transforms string through a series of transformations
+ * Each transform is awaited.
+ * @param str string to transform
+ * @param transformations array of transform functions
+ */
+export async function transformTemplate(str: string,
+    transformations: Transformation[] | undefined): Promise<string> {
     log.trace(`Transforming`);
 
-    // may be undefined if none were added
-    const transforms = transformations[file.sourceExtensionSecond + file.targetExtension];
-
-    // if undefined, defaults to renderedString
+    // transformations may be undefined if no transforms were added, then returns unmodified string
+    // transforms themselves aren't undefined since validated in setTransformations in config.ts
     const transformedString =
-        transforms?.reduce((acc, transform) => {
-            const str = transform(acc);
+        await transformations?.reduce(async (acc, transform) => {
+            await acc;
+
+            const str = await transform(acc);
             if (typeof str != "string") {
                 throw new Error(`The transformation "${transform.name || "(anonymous)"}" must return a string.`);
             }
             return str;
-        }, renderedString) ?? renderedString;
+        }, str) ?? str;
 
     return transformedString;
 }
 
-// modifies file directly
-// todo: compute new file with new properties, can type better, however looses the automatic propagation to all other properties ?!
-// todo: use only if targetPath wasn't set using template data
-// todo: maybe allow for multiple, only useful if extensions have overlap via wildcard, e.g. .md -> .html, and .md -> *, but what is order?
+/**
+ * Transforms the targetPath of a template using a transform function
+ * The transform is awaited.
+ * @param file template whose targetPath is mutated
+ * @param targetPathTransform transform function that mutates the targetPath of the template
+ */
 export async function transformTargetPathTemplate(
     file: Template,
-    targetPathTransformation: { [extensionPair: string]: Transformation }
+    targetPathTransform: Transformation
 ): Promise<void> {
     log.trace(`Transforming target path`);
 
-    // may be undefined if none was added
-    // targetExtension may be empty if user provided targetPath in template data didn't include extension
-    // todo: what to do if file.targetExtension is empty?
-    const targetPathTransform = targetPathTransformation[file.sourceExtensionSecond + file.targetExtension];
-
-    // console.log(file.targetExtension, typeof file.targetExtension)
-    // console.log(targetPathTransform)
-
+    // targetPathTransform may be undefined if not added, then don't do anything
     if (targetPathTransform) {
         const targetPathRelativeTransformed = await targetPathTransform(file.targetPathRelative);
         if (typeof targetPathRelativeTransformed != "string") {

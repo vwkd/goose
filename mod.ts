@@ -1,7 +1,7 @@
 import { log } from "./logger.ts";
 import { meta, cliParse } from "./deps.ts";
 import { getConfig } from "./config.ts";
-import { build } from "./buildNEW.ts";
+import { build } from "./build.ts";
 import type { Flags, Config } from "./types.ts";
 import type { Args, ArgParsingOptions } from "./deps.ts";
 
@@ -126,5 +126,5 @@ if (import.meta.main) {
         log.debug(`Built files: ${JSON.stringify(stats)}`);
     }
 
-    log.info("Application ended.");
+    log.info("Application finished.");
 }

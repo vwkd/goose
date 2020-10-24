@@ -2,9 +2,6 @@ import { pathJoin, pathSeparator, pathParse, pathFormat, deepMergeArr, exists } 
 import { log } from "./logger.ts";
 import type { Flags, Transformation, ConfigFunction, Config, ConfigArgument } from "./types.ts";
 
-// todo: add module name at beginning of error & log statements, because bubble up
-// todo: export typescript type
-
 // contains defaults, get overwritten when properly set
 const defaultConfig: Config = {
     source: "src",
@@ -240,7 +237,7 @@ export async function getConfig(flags: Flags): Promise<Config> {
         log.trace(`Use default config.`);
     }
 
-    log.info("Config ended.");
+    log.info("Config finished.");
 
     return defaultConfig;
 }

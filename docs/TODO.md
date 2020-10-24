@@ -6,6 +6,8 @@
 
 ## In Progress
 
+- how to conveniently set targetExtension?
+- apply transformation in rendering step, and apply only to files with that extension, e.g. for markdown converter, `.md` can have layout `.html`, only `.md` is transformed
 - what happens if user provided paths for files are directories, e.g. layoutPath, targetPath in template data or transform target path function, etc.
 - make render function take single object argument, such that can use destructuring, future proof if later gives more arguments, e.g. pagination, collection, etc
 - in template data make `.targetPath` and `.layoutPath()` take a function that is passed the data object, such that can use all data variables
@@ -32,6 +34,7 @@
 ## Ideas
 
 - multiple configs depending on environment variables, e.g. dev, prod
+- maybe allow for multiple target path transformations, only useful if extensions have overlap via wildcard, e.g. .md -> .html, and .md -> *, but what is order?
 - wildcards for extensions in transformations and target path transformations, e.g. `.md .html`, `.md *`, `* .html`, `* *`
   specific are executed first, then with single wildcard (wildcard in output first before wildcard in input?), then with both wildcards, maybe allow to configure...
 - add hash to filename of assets but not .html files for cache invalidation

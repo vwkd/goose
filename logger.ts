@@ -1,3 +1,5 @@
+// todo: reconsider usefullness of printing time delay, because if async parallelised won't be logging in sequence...
+
 import { ConsoleHandler, FileHandler, Logger, LogLevels, LevelName } from "./deps.ts";
 import { meta } from "./deps.ts";
 import { dotenv } from "./deps.ts";

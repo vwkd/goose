@@ -9,7 +9,7 @@ export type Flags = {
 
 // ------ config.ts ------
 
-export type Transformation = (str: string) => string;
+export type Transformation = (str: string) => Promise<string>;
 
 export type MergeFunction = (target: unknown, ...source: unknown[]) => unknown;
 
@@ -101,16 +101,16 @@ export interface Template extends BaseFile {
 }
 
 export type FileList = {
-    assets: BaseFile[];
-    globals: BaseFile[];
-    layouts: BaseFile[];
-    templates: BaseFile[];
-    ignored: BaseFile[];
+    assetsBase: BaseFile[];
+    globalsBase: BaseFile[];
+    layoutsBase: BaseFile[];
+    templatesBase: BaseFile[];
+    ignoredBase: BaseFile[];
 };
 
 export type Data = unknown;
 
-export type Render = (str: string) => Promise<string>;
+export type Render = (data: unknown, str: string) => Promise<string>;
 
 export interface LayoutConfig {
     layoutPath: string;

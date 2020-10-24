@@ -18,60 +18,60 @@ export async function loadFileList({
     layoutDirname: string;
     dataDirname: string;
 }): Promise<FileList> {
-    const templates: BaseFile[] = [];
-    const assets: BaseFile[] = [];
-    const ignored: BaseFile[] = [];
-    const layouts: BaseFile[] = [];
-    const globals: BaseFile[] = [];
+    const templatesBase: BaseFile[] = [];
+    const assetsBase: BaseFile[] = [];
+    const ignoredBase: BaseFile[] = [];
+    const layoutsBase: BaseFile[] = [];
+    const globalsBase: BaseFile[] = [];
 
     for await (const item of walk(source, { includeDirs: false })) {
         const file = makeFile(source, target, item.path);
 
         if (file.sourceName.startsWith(ignoredFilename)) {
             log.trace(`File is ignored because of filename: ${item.path}`);
-            ignored.push(file);
+            ignoredBase.push(file);
         } else if (file.sourceDirectoryRelativeFirstSegment == layoutDirname) {
             if (file.sourceDirectoryRelativeRestSegmentArr.some(str => str.startsWith(ignoredDirname))) {
                 log.trace(`File is ignored because of directory name: ${item.path}`);
-                ignored.push(file);
+                ignoredBase.push(file);
             } else {
                 log.trace(`File is layout because of directory name: ${item.path}`);
-                layouts.push(file);
+                layoutsBase.push(file);
             }
         } else if (file.sourceDirectoryRelativeFirstSegment == dataDirname) {
             if (file.sourceDirectoryRelativeRestSegmentArr.some(str => str.startsWith(ignoredDirname))) {
                 log.trace(`File is ignored because of directory name: ${item.path}`);
-                ignored.push(file);
+                ignoredBase.push(file);
             } else {
                 log.trace(`File is global data because of directory name: ${item.path}`);
-                globals.push(file);
+                globalsBase.push(file);
             }
         }
 
         // after check for dataDirectory and layoutDirectory such that they can use ignoredFilename
         else if (file.sourceDirectory.split(pathSeparator).some(str => str.startsWith(ignoredDirname))) {
             log.trace(`File is ignored because of directory name: ${item.path}`);
-            ignored.push(file);
+            ignoredBase.push(file);
         } else if (file.sourceExtension == ".js") {
             if (file.sourceExtensionSecond) {
                 log.trace(
                     `File is template because of double "${file.sourceExtensionSecond}.js" extension: ${item.path}`
                 );
-                templates.push(file);
+                templatesBase.push(file);
             } else {
                 log.trace(`File is asset because of single ".js" extension: ${item.path}`);
-                assets.push(file);
+                assetsBase.push(file);
             }
         }
 
         // everything else
         else {
             log.trace(`File is asset because everything else: ${item.path}`);
-            assets.push(file);
+            assetsBase.push(file);
         }
     }
 
-    return { assets, globals, layouts, templates, ignored };
+    return { assetsBase, globalsBase, layoutsBase, templatesBase, ignoredBase };
 }
 
 /**
@@ -91,10 +91,13 @@ function splitPath(path: string): { root: string; dirRel: string; name: string; 
  * targetPath is initialised to same relative path in target as sourcePath is in source
  * source/targetPath/Directory are stripped of leading root segment
  * TODO: Make sure source and target don't start with pathSeparator, otherwise xDirectory/PathRelative will be absolute, and break xPath/DirectoryRelative*Segment()
+ * 
  * TODO: Make sure xPath/DirectoryRelative isn't set with an absolute path, otherwise if source and target are empty, this will break xPath/DirectoryRelative*Segment()
+ * also strips trailing `.js` extension on targetPath if has double extension
  * @param source path of source directory
  * @param target path of target directory
  * @param sourcePath path of file
+ * beware: if makes copy of object loses the dynamic behavior, e.g. using newFile = {...file}
  */
 // todo: relax constraint of return type
 // todo: check when uses sourcePath/Directory without subtracting root first, e.g. in computation of sourcePath/DirectoryRelative...
@@ -107,11 +110,11 @@ function makeFile(source: string, target: string, sourcePath: string): Readonly<
     let name_t = name_s;
     let ext_t = ext_s;
 
-    // strip leading `.js` extension if present
-    const _second_ext_s = pathExtname(name_s);
-    if (_second_ext_s) {
-        name_t = pathBasename(name_t, _second_ext_s);
-        ext_t = _second_ext_s;
+    // strip trailing `.js` extension on targetPath if has double extension
+    const extSec_s = pathExtname(name_s);
+    if (extSec_s) {
+        name_t = pathBasename(name_t, extSec_s);
+        ext_t = extSec_s;
     }
 
     return {
