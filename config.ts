@@ -246,7 +246,7 @@ export async function getConfig(flags: Flags): Promise<Config> {
 }
 
 async function loadConfig(path: string, configArgument: ConfigArgument): Promise<void> {
-    let configFile: { default: ConfigFunction } | undefined = undefined;
+    let configFile: { default?: ConfigFunction } | undefined = undefined;
 
     const relPath = "." + pathJoin(pathSeparator, path);
     try {
@@ -257,7 +257,7 @@ async function loadConfig(path: string, configArgument: ConfigArgument): Promise
         throw new Error(`Couldn't import config file ${path}. ${e.message}`);
     }
 
-    const configFunc: ConfigFunction | undefined = configFile?.default;
+    const configFunc = configFile?.default;
     // validation
     if (!configFunc) {
         throw new Error(`Config ${path} doesn't have a default export.`);
