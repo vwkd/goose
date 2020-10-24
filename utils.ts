@@ -1,9 +1,9 @@
 /**
  * Returns new string with first letter uppercase and rest lowercase
- * Returns undefined for empty string
- * @param str string to capitalise
+ * @param str string to capitalise, undefined is allowed
+ * @returns capitalised string, undefined for empty string or undefined
  */
-export function capitalise(str: string): string {
+export function capitalise(str: string | undefined): string | undefined {
     if (str) {
         return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
     } else {
@@ -13,10 +13,10 @@ export function capitalise(str: string): string {
 
 /**
  * Converts string "true" or "false" to boolean
- * Returns undefined for any other string
- * @param str string to convert to boolean
+ * @param str string to convert to boolean, undefined is allowed
+ * @returns boolean if str is "true" or "false", undefined for any other string or undefined
  */
-export function booleanise(str: string): boolean {
+export function booleanise(str: string | undefined): boolean | undefined {
     if (str === "true") {
         return true;
     } else if (str === "false") {

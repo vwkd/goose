@@ -1,15 +1,13 @@
-export function data(settings) {
-    settings.layoutPath = "page.js"
-
-    return {
-        title: "About"
-    }
+export function config(settings) {
+    settings.layoutPath = "page.js";
 }
 
-export function render(data, template) {
-    return `
-<h1>${data.title}</h1>
+export const data = {
+    title: "About"
+};
 
-<p>Here you can read about me...</p>
-`
+export function render(data, template) {
+    return `<h1>${data.title}</h1>
+
+<p>Here you can read about me...</p>`;
 }

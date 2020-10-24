@@ -5,9 +5,11 @@ export const meta = {
 
 // todo: exchange once #7293 is merged
 // export * as log from "https://deno.land/std@0.74.0/log/mod.ts";
-export { Logger, ConsoleHandler, FileHandler, LogLevelNames } from "./logging/mod.ts";
+export { Logger, ConsoleHandler, FileHandler, LogLevels } from "./logging/mod.ts";
+export type { LevelName } from "./logging/mod.ts"
 
 export { parse as cliParse } from "https://deno.land/std@0.74.0/flags/mod.ts";
+export type { Args, ArgParsingOptions } from "https://deno.land/std@0.74.0/flags/mod.ts";
 
 export { config as dotenv } from "https://deno.land/x/dotenv@v0.5.0/mod.ts";
 

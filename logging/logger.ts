@@ -43,7 +43,7 @@ const DEFAULT_HANDLERS = []; // [defaultConsoleHandler];
 
 export class Logger {
   name: string;
-  level: LogLevels;
+  level: number;
   handlers: Handler[];
   silent: boolean;
 
