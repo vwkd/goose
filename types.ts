@@ -50,7 +50,7 @@ export type ConfigArgument = {
 // ------ build.ts ------
 
 // only path metadata of file, doesn't contain contents, are in the more specific extensions, e.g. Global, Layout
-interface File {
+export interface BaseFile {
     sourcePath: string;
     sourcePathRelative: string;
     sourceDirectory: string;
@@ -60,8 +60,11 @@ interface File {
     sourceExtension: string;
     sourceExtensionSecond: string;
     // todo: reconsider, maybe adding only on Template and Layout
+    // sourcePathRelativeFirstSegment: string;
+    sourcePathRelativeRestSegment: string;
     sourceDirectoryRelativeFirstSegment: string;
-    sourceDirectoryRelativeRestSegment: string[];
+    // sourceDirectoryRelativeRestSegment: string;
+    sourceDirectoryRelativeRestSegmentArr: string[];
     targetPath: string;
     targetPathRelative: string;
     targetDirectory: string;
@@ -70,62 +73,49 @@ interface File {
     targetName: string;
     targetExtension: string;
     // todo: reconsider, maybe adding only on Template and Layout
-    targetDirectoryRelativeFirstSegment: string;
-    targetDirectoryRelativeRestSegment: string[];
+    // targetPathRelativeFirstSegment: string;
+    // targetPathRelativeRestSegment: string[];
+    // targetDirectoryRelativeFirstSegment: string;
+    // targetDirectoryRelativeRestSegment: string;
+    // targetDirectoryRelativeRestSegmentArr: string[];
 }
 
-interface Global extends File {
+export interface Global extends BaseFile {
     data?: Data;
 }
 
-interface Layout extends File {
-    config?: Config;
+// todo: make separate types for each step, with only data & render, then with layoutPathRelative, then with dataMerged
+export interface Layout extends BaseFile {
     // todo: maybe don't save data but merged data?
     data?: Data;
     render?: Render;
+    layoutPathRelative?: string
+    dataMerged?: Data;
 }
 
-interface Template extends File {
-    config?: TemplateConfig;
+export interface Template extends BaseFile {
     // todo: maybe don't save data but merged data?
     data?: Data;
     render?: Render;
+    layoutPathRelative?: string
 }
 
-type FileList = {
-    assets: File[];
-    templates: Template[];
-    layouts: Layout[];
-    globals: Global[];
-    ignored: File[];
+export type FileList = {
+    assets: BaseFile[];
+    globals: BaseFile[];
+    layouts: BaseFile[];
+    templates: BaseFile[];
+    ignored: BaseFile[];
 };
 
-export type Data = object;
+export type Data = unknown;
 
 export type Render = (str: string) => Promise<string>;
 
-export interface Config {
+export interface LayoutConfig {
     layoutPath: string;
 }
 
-export interface TemplateConfig extends Config {
+export interface TemplateConfig extends LayoutConfig {
     targetPath: string;
 }
-
-
-
-//// todo OLD BELOW revise
-
-export type LayoutConfigFunction = (layoutConfigArgument: LayoutConfigArgument) => Promise<void>;
-
-export type TemplateConfigFunction = (TemplateConfigArgument: TemplateConfigArgument) => Promise<void>;
-
-export type TemplateConfig = {
-    targetPath: string;
-    layoutPath: string;
-};
-
-export type TemplateConfigArgument = {
-    targetPath: string;
-    layoutPath: string;
-};
