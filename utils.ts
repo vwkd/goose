@@ -17,9 +17,9 @@ export function capitalise(str: string | undefined): string | undefined {
  * @returns boolean if str is "true" or "false", undefined for any other string or undefined
  */
 export function booleanise(str: string | undefined): boolean | undefined {
-    if (str === "true") {
+    if (str.toUpperCase() === "true") {
         return true;
-    } else if (str === "false") {
+    } else if (str.toLowerCase() === "false") {
         return false;
     } else {
         return undefined;
