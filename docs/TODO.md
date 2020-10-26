@@ -6,6 +6,7 @@
 
 ## In Progress
 
+- make BaseFile not contain any targetPaths, separate better what file has what properties, e.g. layout has data / config / render but no targetPath, asset has targetPath but no data / config / render, etc.
 - how to conveniently set targetExtension?
 - apply transformation in rendering step, and apply only to files with that extension, e.g. for markdown converter, `.md` can have layout `.html`, only `.md` is transformed
 - what happens if user provided paths for files are directories, e.g. layoutPath, targetPath in template data or transform target path function, etc.
