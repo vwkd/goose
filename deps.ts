@@ -29,16 +29,16 @@ export {
 } from "https://deno.land/std@0.74.0/path/mod.ts";
 
 // todo: pin version
-export { deepMerge, deepMergeArr } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/deep_merge.ts";
-export { shallowMerge } from "https://raw.githubusercontent.com/vwkd/utilities-js/main/shallow_merge.ts";
+export { deepMerge, deepMergeArr } from "https://raw.githubusercontent.com/vwkd/goose-utilities/main/deep_merge.ts";
+export { shallowMerge } from "https://raw.githubusercontent.com/vwkd/goose-utilities/main/shallow_merge.ts";
 export {
     walkChainCall,
     walkChainIdCall,
     walkChainMerge,
     walkChainIdMerge
-} from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_chain.ts";
+} from "https://raw.githubusercontent.com/vwkd/goose-utilities/main/walk_chain.ts";
 export {
     walkTreeCall,
     walkTreeLeafCall,
     walkTreeCompare
-} from "https://raw.githubusercontent.com/vwkd/utilities-js/main/walk_tree.ts";
+} from "https://raw.githubusercontent.com/vwkd/goose-utilities/main/walk_tree.ts";
